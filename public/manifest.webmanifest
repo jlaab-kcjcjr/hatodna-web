@@ -1,0 +1,15 @@
+{
+  "name": "HatodNa Partner",
+  "short_name": "HN Partner",
+  "description": "Albay's own delivery: food, groceries, pabili, and padala.",
+  "start_url": "/merchant",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#FDFBF8",
+  "theme_color": "#B8202B",
+  "icons": [
+    { "src": "/icons/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "/icons/icon-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "/icons/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}
