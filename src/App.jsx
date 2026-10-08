@@ -1,6 +1,7 @@
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { MerchantProvider } from './context/MerchantContext';
 import { AdminProvider } from './context/AdminContext';
+import Landing from './pages/Landing';
 import InstallGuide from './pages/InstallGuide';
 import MerchantLogin from './merchant/MerchantLogin';
 import MerchantLayout from './merchant/MerchantLayout';
@@ -16,13 +17,12 @@ import Stores from './admin/Stores';
 import AdminOrders from './admin/AdminOrders';
 import Settings from './admin/Settings';
 
-// "/" will become the landing page next.
 export default function App() {
   return (
     <MerchantProvider>
       <AdminProvider>
         <Routes>
-          <Route path="/" element={<Navigate to="/merchant" replace />} />
+          <Route path="/" element={<Landing />} />
           <Route path="/install" element={<InstallGuide />} />
 
           <Route path="/merchant/login" element={<MerchantLogin />} />
@@ -42,7 +42,7 @@ export default function App() {
             <Route path="settings" element={<Settings />} />
           </Route>
 
-          <Route path="*" element={<Navigate to="/merchant" replace />} />
+          <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </AdminProvider>
     </MerchantProvider>
