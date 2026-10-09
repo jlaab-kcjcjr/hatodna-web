@@ -580,3 +580,32 @@ html { scroll-behavior: smooth; }
 }
 
 .btn { text-decoration: none; }
+
+/* ===== Supabase connection: loading, setup, and status screens ===== */
+.page-loading { min-height: 100vh; display: grid; place-items: center; color: var(--ink-soft); font-weight: 600; }
+.form-success {
+  margin-bottom: 1rem; padding: 0.875rem 1rem; border-radius: var(--radius-sm);
+  background: var(--pili-soft); color: var(--pili); font-weight: 600;
+}
+.login-note { margin-top: 0.875rem; text-align: center; }
+.login-form .tabs { margin-bottom: 1.5rem; }
+
+.setup { min-height: 100vh; background: var(--page); }
+.setup-header {
+  display: flex; align-items: center; justify-content: space-between; gap: 1rem;
+  padding: calc(1rem + env(safe-area-inset-top)) 1.5rem 1rem; background: var(--ink); color: #fff;
+}
+.setup-brand { font-family: var(--font-display); font-size: 1.5rem; }
+.setup-sub { margin-left: 0.375rem; color: #cbbdb5; font-family: var(--font-body); font-size: 0.875rem; }
+.btn-on-dark { border-color: rgba(255, 255, 255, 0.3); color: #fff; }
+.btn-on-dark:hover { border-color: #fff; }
+.setup-body { max-width: 40rem; margin: 0 auto; padding: 2rem 1.25rem 4rem; }
+.setup-title { margin-bottom: 0.5rem; }
+.setup-text { margin-bottom: 1.25rem; }
+.setup-status { padding: 2.5rem 1.5rem; text-align: center; }
+.setup-status h1 { margin-bottom: 0.75rem; }
+.setup-contact { margin-top: 1rem; }
+
+.order-money { text-align: right; }
+.order-waiting { color: var(--ink-soft); font-size: 0.875rem; font-weight: 600; }
+.apply-next { margin-top: 1.25rem; }

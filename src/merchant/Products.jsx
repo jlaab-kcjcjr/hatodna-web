@@ -2,14 +2,24 @@ import { useMemo, useState } from 'react';
 import { Plus, Pencil, Trash2, Search, ImagePlus, X } from 'lucide-react';
 import { useMerchant } from '../context/MerchantContext';
 import { peso } from '../utils/format';
+import { publicUrl } from '../utils/images';
 
-const EMPTY_PRODUCT = { name: '', price: '', category: '', description: '', image: '', available: true };
-const MAX_IMAGE_BYTES = 800 * 1024;
+const EMPTY_PRODUCT = { name: '', price: '', category: '', description: '', image_path: null, is_available: true };
+const MAX_FILE_BYTES = 10 * 1024 * 1024;
 const ART_COLORS = ['#B8202B', '#2E5E3E', '#2A1A16', '#8E1620'];
 
 function ProductForm({ initial, categories, onCancel, onSave }) {
-  const [form, setForm] = useState({ ...initial, price: String(initial.price ?? '') });
+  const [form, setForm] = useState({
+    name: initial.name ?? '',
+    price: initial.price ? String(initial.price) : '',
+    category: initial.category ?? '',
+    description: initial.description ?? '',
+    is_available: initial.is_available ?? true,
+  });
+  const [file, setFile] = useState(null);
+  const [preview, setPreview] = useState(() => publicUrl('product-images', initial.image_path));
   const [error, setError] = useState('');
+  const [busy, setBusy] = useState(false);
 
   const set = (key, value) => {
     setForm((f) => ({ ...f, [key]: value }));
@@ -17,45 +27,53 @@ function ProductForm({ initial, categories, onCancel, onSave }) {
   };
 
   const onImage = (e) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    if (file.size > MAX_IMAGE_BYTES) {
-      setError('That photo is too large. Use one under 800 KB.');
-      return;
-    }
-    const reader = new FileReader();
-    reader.onload = () => set('image', reader.result);
-    reader.readAsDataURL(file);
+    const chosen = e.target.files?.[0];
+    if (!chosen) return;
+    if (!chosen.type.startsWith('image/')) return setError('Choose an image file.');
+    if (chosen.size > MAX_FILE_BYTES) return setError('That photo is too large. Use one under 10 MB.');
+    setFile(chosen);
+    setPreview(URL.createObjectURL(chosen));
+    setError('');
   };
 
-  const onSubmit = (e) => {
+  const onSubmit = async (e) => {
     e.preventDefault();
     const price = Number(form.price);
     if (!form.name.trim()) return setError('Enter the product name.');
     if (!price || price <= 0) return setError('Enter a price greater than ₱0.');
     if (!form.category.trim()) return setError('Choose or type a category.');
-    onSave({
-      ...form,
-      name: form.name.trim(),
-      category: form.category.trim(),
-      description: form.description.trim(),
-      price,
-    });
+    setBusy(true);
+    try {
+      await onSave(
+        {
+          ...initial,
+          ...form,
+          name: form.name.trim(),
+          category: form.category.trim(),
+          description: form.description.trim(),
+          price,
+        },
+        file
+      );
+    } catch (err) {
+      setError(err.message);
+      setBusy(false);
+    }
   };
 
   return (
-    <div className="modal-backdrop" onClick={onCancel}>
+    <div className="modal-backdrop" onClick={busy ? undefined : onCancel}>
       <form className="modal" onClick={(e) => e.stopPropagation()} onSubmit={onSubmit}>
         <div className="modal-head">
           <h2>{initial.id ? 'Edit product' : 'Add product'}</h2>
-          <button type="button" className="icon-btn" onClick={onCancel} aria-label="Close">
+          <button type="button" className="icon-btn" onClick={onCancel} aria-label="Close" disabled={busy}>
             <X size={20} />
           </button>
         </div>
 
         <label className="photo-pick">
-          {form.image ? (
-            <img src={form.image} alt="" />
+          {preview ? (
+            <img src={preview} alt="" />
           ) : (
             <span className="photo-empty">
               <ImagePlus size={26} aria-hidden="true" />
@@ -76,6 +94,7 @@ function ProductForm({ initial, categories, onCancel, onSave }) {
             <input
               type="number"
               min="1"
+              step="0.01"
               inputMode="decimal"
               value={form.price}
               onChange={(e) => set('price', e.target.value)}
@@ -109,18 +128,18 @@ function ProductForm({ initial, categories, onCancel, onSave }) {
         </label>
 
         <label className="check">
-          <input type="checkbox" checked={form.available} onChange={(e) => set('available', e.target.checked)} />
+          <input type="checkbox" checked={form.is_available} onChange={(e) => set('is_available', e.target.checked)} />
           Available to order
         </label>
 
         {error && <p className="form-error">{error}</p>}
 
         <div className="modal-actions">
-          <button type="button" className="btn btn-ghost" onClick={onCancel}>
+          <button type="button" className="btn btn-ghost" onClick={onCancel} disabled={busy}>
             Cancel
           </button>
-          <button type="submit" className="btn btn-primary">
-            {initial.id ? 'Save changes' : 'Add product'}
+          <button type="submit" className="btn btn-primary" disabled={busy}>
+            {busy ? 'Saving...' : initial.id ? 'Save changes' : 'Add product'}
           </button>
         </div>
       </form>
@@ -135,13 +154,21 @@ export default function Products() {
   const [category, setCategory] = useState('All');
 
   const categories = useMemo(() => [...new Set(products.map((p) => p.category))], [products]);
-  const soldOutCount = products.filter((p) => !p.available).length;
+  const soldOutCount = products.filter((p) => !p.is_available).length;
   const visible = products.filter(
     (p) => (category === 'All' || p.category === category) && p.name.toLowerCase().includes(query.toLowerCase())
   );
 
+  const run = async (task) => {
+    try {
+      await task();
+    } catch (err) {
+      window.alert(err.message);
+    }
+  };
+
   const onDelete = (p) => {
-    if (window.confirm(`Delete "${p.name}"? Customers will no longer see it.`)) deleteProduct(p.id);
+    if (window.confirm(`Delete "${p.name}"? Customers will no longer see it.`)) run(() => deleteProduct(p.id));
   };
 
   return (
@@ -185,19 +212,23 @@ export default function Products() {
 
       {visible.length === 0 ? (
         <div className="empty">
-          <p>No products match.</p>
-          <p className="muted small">Try another search or category, or add a new product.</p>
+          <p>{products.length === 0 ? 'No products yet.' : 'No products match.'}</p>
+          <p className="muted small">
+            {products.length === 0
+              ? 'Add your first product so customers can order from you.'
+              : 'Try another search or category.'}
+          </p>
         </div>
       ) : (
         <div className="product-grid">
           {visible.map((p) => (
-            <article key={p.id} className={`product${p.available ? '' : ' is-soldout'}`}>
+            <article key={p.id} className={`product${p.is_available ? '' : ' is-soldout'}`}>
               <div
                 className="product-art"
                 style={{ background: ART_COLORS[Math.max(0, categories.indexOf(p.category)) % ART_COLORS.length] }}
               >
-                {p.image ? (
-                  <img src={p.image} alt={p.name} />
+                {p.image_path ? (
+                  <img src={publicUrl('product-images', p.image_path)} alt={p.name} />
                 ) : (
                   <span>
                     {p.name
@@ -207,7 +238,7 @@ export default function Products() {
                       .join('')}
                   </span>
                 )}
-                {!p.available && <span className="soldout-tag">Sold out</span>}
+                {!p.is_available && <span className="soldout-tag">Sold out</span>}
               </div>
               <div className="product-body">
                 <p className="product-cat">{p.category}</p>
@@ -217,9 +248,9 @@ export default function Products() {
               </div>
               <div className="product-actions">
                 <label className="switch">
-                  <input type="checkbox" checked={p.available} onChange={() => toggleAvailable(p.id)} />
+                  <input type="checkbox" checked={p.is_available} onChange={() => run(() => toggleAvailable(p))} />
                   <span className="switch-track" aria-hidden="true" />
-                  <span className="small">{p.available ? 'Available' : 'Sold out'}</span>
+                  <span className="small">{p.is_available ? 'Available' : 'Sold out'}</span>
                 </label>
                 <div className="product-icons">
                   <button type="button" className="icon-btn" onClick={() => setEditing(p)} aria-label={`Edit ${p.name}`}>
@@ -245,8 +276,8 @@ export default function Products() {
           initial={editing}
           categories={categories}
           onCancel={() => setEditing(null)}
-          onSave={(p) => {
-            saveProduct(p);
+          onSave={async (product, file) => {
+            await saveProduct(product, file);
             setEditing(null);
           }}
         />

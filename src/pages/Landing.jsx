@@ -19,6 +19,7 @@ import { COLORS } from '../theme';
 import { greeting } from '../utils/format';
 import MayonMark from '../components/MayonMark';
 import BanigBand from '../components/BanigBand';
+import { supabase } from '../lib/supabase';
 
 const YEAR = new Date().getFullYear();
 
@@ -105,6 +106,8 @@ function PartnerForm() {
   const [form, setForm] = useState(EMPTY_FORM);
   const [errors, setErrors] = useState({});
   const [sent, setSent] = useState(false);
+  const [sending, setSending] = useState(false);
+  const [sendError, setSendError] = useState('');
 
   const set = (key, value) => {
     setForm((f) => ({ ...f, [key]: value }));
@@ -119,7 +122,7 @@ function PartnerForm() {
     'aria-describedby': errors[key] ? `apply-${key}-error` : undefined,
   });
 
-  const onSubmit = (e) => {
+  const onSubmit = async (e) => {
     e.preventDefault();
     const next = {};
     if (form.store.trim().length < 2) next.store = 'Enter your store name.';
@@ -130,7 +133,23 @@ function PartnerForm() {
     if (!form.category) next.category = 'Choose what you sell.';
     setErrors(next);
     if (Object.keys(next).length > 0) return;
-    // Later: send this to the backend so it appears in the admin dashboard under Stores.
+
+    setSending(true);
+    setSendError('');
+    // Saved to the database. It appears in the admin dashboard for the team to follow up.
+    const { error } = await supabase.from('partner_applications').insert({
+      store_name: form.store.trim(),
+      owner_name: form.owner.trim(),
+      phone: `+63${digits}`,
+      town: form.town,
+      category: form.category,
+      message: form.message.trim(),
+    });
+    setSending(false);
+    if (error) {
+      setSendError('We could not send your application. Please check your connection and try again.');
+      return;
+    }
     setSent(true);
   };
 
@@ -141,8 +160,11 @@ function PartnerForm() {
         <h3>Dios mabalos, {form.owner.trim().split(' ')[0]}!</h3>
         <p>
           We received the application for {form.store.trim()}. Our team will call you at {form.phone.trim()} within 1 to
-          2 days to talk about permits and next steps.
+          2 days. You can also create your partner account now so you're ready.
         </p>
+        <Link to="/merchant/login" className="btn btn-primary apply-next">
+          Create partner account
+        </Link>
       </div>
     );
   }
@@ -186,8 +208,9 @@ function PartnerForm() {
       <Field id="apply-message" label="Anything we should know? (optional)">
         <textarea {...inputProps('message')} rows={3} placeholder="Your best-sellers, opening hours, or questions for us." />
       </Field>
-      <button type="submit" className="btn btn-primary btn-block">
-        Send application
+      {sendError && <p className="form-error">{sendError}</p>}
+      <button type="submit" className="btn btn-primary btn-block" disabled={sending}>
+        {sending ? 'Sending...' : 'Send application'}
       </button>
       <p className="muted small lp-apply-note">
         Already a partner?{' '}

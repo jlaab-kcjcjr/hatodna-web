@@ -1,4 +1,5 @@
 import { Routes, Route, Navigate } from 'react-router-dom';
+import { AuthProvider } from './context/AuthContext';
 import { MerchantProvider } from './context/MerchantContext';
 import { AdminProvider } from './context/AdminContext';
 import Landing from './pages/Landing';
@@ -19,32 +20,34 @@ import Settings from './admin/Settings';
 
 export default function App() {
   return (
-    <MerchantProvider>
-      <AdminProvider>
-        <Routes>
-          <Route path="/" element={<Landing />} />
-          <Route path="/install" element={<InstallGuide />} />
+    <AuthProvider>
+      <MerchantProvider>
+        <AdminProvider>
+          <Routes>
+            <Route path="/" element={<Landing />} />
+            <Route path="/install" element={<InstallGuide />} />
 
-          <Route path="/merchant/login" element={<MerchantLogin />} />
-          <Route path="/merchant" element={<MerchantLayout />}>
-            <Route index element={<Overview />} />
-            <Route path="orders" element={<Orders />} />
-            <Route path="products" element={<Products />} />
-            <Route path="settings" element={<StoreSettings />} />
-          </Route>
+            <Route path="/merchant/login" element={<MerchantLogin />} />
+            <Route path="/merchant" element={<MerchantLayout />}>
+              <Route index element={<Overview />} />
+              <Route path="orders" element={<Orders />} />
+              <Route path="products" element={<Products />} />
+              <Route path="settings" element={<StoreSettings />} />
+            </Route>
 
-          <Route path="/admin/login" element={<AdminLogin />} />
-          <Route path="/admin" element={<AdminLayout />}>
-            <Route index element={<AdminOverview />} />
-            <Route path="riders" element={<Riders />} />
-            <Route path="stores" element={<Stores />} />
-            <Route path="orders" element={<AdminOrders />} />
-            <Route path="settings" element={<Settings />} />
-          </Route>
+            <Route path="/admin/login" element={<AdminLogin />} />
+            <Route path="/admin" element={<AdminLayout />}>
+              <Route index element={<AdminOverview />} />
+              <Route path="riders" element={<Riders />} />
+              <Route path="stores" element={<Stores />} />
+              <Route path="orders" element={<AdminOrders />} />
+              <Route path="settings" element={<Settings />} />
+            </Route>
 
-          <Route path="*" element={<Navigate to="/" replace />} />
-        </Routes>
-      </AdminProvider>
-    </MerchantProvider>
+            <Route path="*" element={<Navigate to="/" replace />} />
+          </Routes>
+        </AdminProvider>
+      </MerchantProvider>
+    </AuthProvider>
   );
 }

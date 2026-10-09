@@ -1,126 +1,215 @@
-import { createContext, useContext, useEffect, useState } from 'react';
-import { DEMO_LOGIN, INITIAL_STORE, INITIAL_PRODUCTS, SAMPLE_CUSTOMERS } from '../data/merchantData';
+import { createContext, useCallback, useContext, useEffect, useState } from 'react';
+import { supabase } from '../lib/supabase';
+import { useAuth } from './AuthContext';
+import { uploadImage } from '../utils/images';
 import { playChime } from '../utils/chime';
 
-const STORAGE_KEY = 'hatodna-merchant-v1';
-const DEMO_ORDER_EVERY_MS = 45000;
+const MerchantContext = createContext(null);
+const ORDER_SELECT = '*, order_items(*)';
 
-function loadSaved() {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    return raw ? JSON.parse(raw) : null;
-  } catch {
-    return null;
-  }
+function check(error, fallback) {
+  if (error) throw new Error(error.message || fallback);
 }
 
-const MerchantContext = createContext(null);
-
 export function MerchantProvider({ children }) {
-  const [saved] = useState(loadSaved);
-  const [loggedIn, setLoggedIn] = useState(saved?.loggedIn ?? false);
-  const [store, setStore] = useState(saved?.store ?? INITIAL_STORE);
-  const [products, setProducts] = useState(saved?.products ?? INITIAL_PRODUCTS);
-  const [orders, setOrders] = useState(saved?.orders ?? []);
+  const { session, profile } = useAuth();
+  const userId = session?.user.id;
+  const isMerchant = profile?.role === 'merchant' || profile?.role === 'admin';
 
-  // Demo only: keeps data after a page refresh. Later, the backend stores this.
-  useEffect(() => {
+  const [store, setStore] = useState(null);
+  const [products, setProducts] = useState([]);
+  const [hours, setHours] = useState([]);
+  const [orders, setOrders] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState('');
+
+  const loadAll = useCallback(async () => {
+    if (!userId || !isMerchant) {
+      setStore(null);
+      setProducts([]);
+      setHours([]);
+      setOrders([]);
+      setLoading(false);
+      return;
+    }
+    setLoading(true);
+    setLoadError('');
     try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify({ loggedIn, store, products, orders }));
-    } catch {
-      // Storage is full or blocked; the portal still works for this session.
+      const { data: stores, error } = await supabase
+        .from('stores')
+        .select('*')
+        .eq('owner_id', userId)
+        .order('created_at')
+        .limit(1);
+      check(error, 'Could not load your store.');
+      const myStore = stores[0] ?? null;
+      setStore(myStore);
+
+      if (myStore) {
+        const [p, h, o] = await Promise.all([
+          supabase.from('products').select('*').eq('store_id', myStore.id).order('created_at', { ascending: false }),
+          supabase.from('store_hours').select('*').eq('store_id', myStore.id).order('day_of_week'),
+          supabase
+            .from('orders')
+            .select(ORDER_SELECT)
+            .eq('store_id', myStore.id)
+            .order('created_at', { ascending: false })
+            .limit(200),
+        ]);
+        check(p.error, 'Could not load your products.');
+        check(h.error, 'Could not load your hours.');
+        check(o.error, 'Could not load your orders.');
+        setProducts(p.data);
+        setHours(h.data);
+        setOrders(o.data);
+      }
+    } catch (err) {
+      setLoadError(err.message);
+    } finally {
+      setLoading(false);
     }
-  }, [loggedIn, store, products, orders]);
+  }, [userId, isMerchant]);
 
-  const login = (email, password) => {
-    const ok = email.trim().toLowerCase() === DEMO_LOGIN.email && password === DEMO_LOGIN.password;
-    if (ok) setLoggedIn(true);
-    return ok;
-  };
+  // Loading data from Supabase (an external system) is a valid use of an effect.
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    loadAll();
+  }, [loadAll]);
 
-  const logout = () => setLoggedIn(false);
-
-  const updateStore = (changes) => setStore((s) => ({ ...s, ...changes }));
-  const toggleOpen = () => setStore((s) => ({ ...s, isOpen: !s.isOpen }));
-
-  const saveProduct = (product) => {
-    if (product.id) {
-      setProducts((list) => list.map((p) => (p.id === product.id ? product : p)));
-    } else {
-      setProducts((list) => [{ ...product, id: `p${Date.now()}` }, ...list]);
-    }
-  };
-
-  const deleteProduct = (id) => setProducts((list) => list.filter((p) => p.id !== id));
-
-  const toggleAvailable = (id) =>
-    setProducts((list) => list.map((p) => (p.id === id ? { ...p, available: !p.available } : p)));
-
-  const setStatus = (id, status, extra = {}) =>
-    setOrders((list) => list.map((o) => (o.id === id ? { ...o, status, ...extra, updatedAt: Date.now() } : o)));
-
-  const acceptOrder = (id) => setStatus(id, 'preparing');
-  const declineOrder = (id, reason) => setStatus(id, 'declined', { declineReason: reason });
-  const markReady = (id) => setStatus(id, 'ready');
-  const markPickedUp = (id) => setStatus(id, 'completed');
-
-  // Demo only: creates a sample order. Later, real orders come from the customer app.
-  const simulateOrder = () => {
-    const available = products.filter((p) => p.available);
-    if (available.length === 0) return;
-    const count = 1 + Math.floor(Math.random() * Math.min(3, available.length));
-    const picked = [...available].sort(() => Math.random() - 0.5).slice(0, count);
-    const items = picked.map((p) => ({
-      id: p.id,
-      name: p.name,
-      price: p.price,
-      qty: 1 + Math.floor(Math.random() * 2),
-    }));
-    const customer = SAMPLE_CUSTOMERS[Math.floor(Math.random() * SAMPLE_CUSTOMERS.length)];
-    const order = {
-      id: `o${Date.now()}`,
-      code: `HN-${Math.floor(1000 + Math.random() * 9000)}`,
-      customer: customer.name,
-      address: customer.address,
-      note: customer.note,
-      items,
-      subtotal: items.reduce((sum, i) => sum + i.price * i.qty, 0),
-      status: 'new',
-      createdAt: Date.now(),
+  // Live orders: new orders appear instantly with a chime, and status changes update on their own.
+  const storeId = store?.id;
+  useEffect(() => {
+    if (!storeId) return;
+    const channel = supabase
+      .channel(`store-orders-${storeId}`)
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'orders', filter: `store_id=eq.${storeId}` },
+        async (payload) => {
+          if (payload.eventType === 'INSERT') {
+            const { data } = await supabase.from('orders').select(ORDER_SELECT).eq('id', payload.new.id).single();
+            if (data) {
+              setOrders((list) => (list.some((o) => o.id === data.id) ? list : [data, ...list]));
+              playChime();
+            }
+          } else if (payload.eventType === 'UPDATE') {
+            setOrders((list) => list.map((o) => (o.id === payload.new.id ? { ...o, ...payload.new } : o)));
+          }
+        }
+      )
+      .subscribe();
+    return () => {
+      supabase.removeChannel(channel);
     };
-    setOrders((list) => [order, ...list]);
-    playChime();
+  }, [storeId]);
+
+  const registerStore = async (form) => {
+    const { data, error } = await supabase.from('stores').insert(form).select().single();
+    check(error, 'Could not register your store.');
+    const defaultHours = [0, 1, 2, 3, 4, 5, 6].map((day) => ({
+      store_id: data.id,
+      day_of_week: day,
+      open_time: '07:00',
+      close_time: '20:00',
+      is_closed: false,
+    }));
+    const { error: hoursError } = await supabase.from('store_hours').insert(defaultHours);
+    check(hoursError, 'Your store was registered, but the opening hours could not be saved.');
+    await loadAll();
   };
 
-    useEffect(() => {
-    if (!loggedIn || !store.isOpen) return;
-    const t = setInterval(simulateOrder, DEMO_ORDER_EVERY_MS);
-    return () => clearInterval(t);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [loggedIn, store.isOpen, products]);
+  const updateStore = async (changes) => {
+    const { data, error } = await supabase.from('stores').update(changes).eq('id', store.id).select().single();
+    check(error, 'Could not save your store details.');
+    setStore(data);
+  };
 
-  const newCount = orders.filter((o) => o.status === 'new').length;
+  const toggleOpen = () => updateStore({ is_open: !store.is_open });
+
+  const saveHours = async (rows) => {
+    const { data, error } = await supabase
+      .from('store_hours')
+      .upsert(rows.map((r) => ({ ...r, store_id: store.id })), { onConflict: 'store_id,day_of_week' })
+      .select();
+    check(error, 'Could not save your opening hours.');
+    setHours([...data].sort((a, b) => a.day_of_week - b.day_of_week));
+  };
+
+  const saveProduct = async (product, imageFile) => {
+    let imagePath = product.image_path ?? null;
+    if (imageFile) imagePath = await uploadImage('product-images', userId, imageFile);
+    const row = {
+      name: product.name,
+      description: product.description,
+      category: product.category,
+      price: product.price,
+      is_available: product.is_available,
+      image_path: imagePath,
+    };
+    if (product.id) {
+      const { data, error } = await supabase.from('products').update(row).eq('id', product.id).select().single();
+      check(error, 'Could not save the product.');
+      setProducts((list) => list.map((p) => (p.id === data.id ? data : p)));
+    } else {
+      const { data, error } = await supabase
+        .from('products')
+        .insert({ ...row, store_id: store.id })
+        .select()
+        .single();
+      check(error, 'Could not add the product.');
+      setProducts((list) => [data, ...list]);
+    }
+  };
+
+  const deleteProduct = async (id) => {
+    const { error } = await supabase.from('products').delete().eq('id', id);
+    check(error, 'Could not delete the product.');
+    setProducts((list) => list.filter((p) => p.id !== id));
+  };
+
+  const toggleAvailable = async (product) => {
+    const { data, error } = await supabase
+      .from('products')
+      .update({ is_available: !product.is_available })
+      .eq('id', product.id)
+      .select()
+      .single();
+    check(error, 'Could not update the product.');
+    setProducts((list) => list.map((p) => (p.id === data.id ? data : p)));
+  };
+
+  // Accept, decline, or mark ready. The database checks that the action is allowed.
+  const orderAction = async (orderId, action, reason = '') => {
+    const { data, error } = await supabase.rpc('merchant_update_order', {
+      p_order_id: orderId,
+      p_action: action,
+      p_reason: reason,
+    });
+    check(error, 'Could not update the order.');
+    setOrders((list) => list.map((o) => (o.id === orderId ? { ...o, ...data } : o)));
+  };
+
+  const newCount = orders.filter((o) => o.status === 'placed').length;
 
   return (
     <MerchantContext.Provider
       value={{
-        loggedIn,
         store,
         products,
+        hours,
         orders,
+        loading,
+        loadError,
         newCount,
-        login,
-        logout,
+        reload: loadAll,
+        registerStore,
         updateStore,
         toggleOpen,
+        saveHours,
         saveProduct,
         deleteProduct,
         toggleAvailable,
-        acceptOrder,
-        declineOrder,
-        markReady,
-        markPickedUp,
-        simulateOrder,
+        orderAction,
       }}
     >
       {children}

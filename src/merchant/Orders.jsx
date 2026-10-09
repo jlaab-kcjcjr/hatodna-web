@@ -3,64 +3,95 @@ import { useMerchant } from '../context/MerchantContext';
 import { peso, timeAgo } from '../utils/format';
 
 const TABS = [
-  { key: 'new', label: 'New', empty: 'No new orders right now.' },
-  { key: 'preparing', label: 'Preparing', empty: 'Nothing is being prepared.' },
-  { key: 'ready', label: 'Ready for pickup', empty: 'No orders waiting for a rider.' },
-  { key: 'completed', label: 'Completed', empty: 'No completed orders yet.' },
-  { key: 'declined', label: 'Declined', empty: 'No declined orders.' },
+  { key: 'new', label: 'New', statuses: ['placed'], empty: 'No new orders right now.' },
+  { key: 'preparing', label: 'Preparing', statuses: ['preparing'], empty: 'Nothing is being prepared.' },
+  { key: 'ready', label: 'Ready for pickup', statuses: ['ready'], empty: 'No orders waiting for a rider.' },
+  { key: 'delivery', label: 'Out for delivery', statuses: ['on_the_way'], empty: 'No orders on the road.' },
+  { key: 'done', label: 'Completed', statuses: ['delivered'], empty: 'No completed orders yet.' },
+  { key: 'declined', label: 'Declined or cancelled', statuses: ['declined', 'cancelled'], empty: 'Nothing here.' },
 ];
 
 const DECLINE_REASONS = ['An item is sold out', 'Too busy right now', 'Closing soon'];
 
 function OrderCard({ order }) {
-  const { acceptOrder, declineOrder, markReady, markPickedUp } = useMerchant();
+  const { orderAction } = useMerchant();
   const [declining, setDeclining] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+  const items = order.order_items ?? [];
+  const youReceive = Number(order.subtotal) - Number(order.commission_amount);
+
+  const act = async (action, reason) => {
+    setBusy(true);
+    setError('');
+    try {
+      await orderAction(order.id, action, reason);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setBusy(false);
+    }
+  };
 
   return (
-    <article className={`order order-${order.status}`}>
+    <article className={`order${order.status === 'placed' ? ' order-new' : ''}`}>
       <header className="order-head">
         <div>
           <p className="order-code">{order.code}</p>
-          <p className="muted small">{timeAgo(order.createdAt)}</p>
+          <p className="muted small">{timeAgo(order.created_at)}</p>
         </div>
-        <p className="order-total">{peso(order.subtotal)}</p>
+        <div className="order-money">
+          <p className="order-total">{peso(order.subtotal)}</p>
+          <p className="muted small">You receive {peso(youReceive)}</p>
+        </div>
       </header>
 
       <p className="order-customer">
-        {order.customer}
-        <span className="muted">, {order.address}</span>
+        {order.customer_name || 'Customer'}
+        <span className="muted">
+          , {order.address}
+          {order.landmark ? ` (${order.landmark})` : ''}
+        </span>
       </p>
 
       <ul className="order-items">
-        {order.items.map((i) => (
+        {items.map((i) => (
           <li key={i.id}>
             <span className="qty">{i.qty}×</span>
             {i.name}
-            <span className="muted">{peso(i.price * i.qty)}</span>
+            <span className="muted">{peso(Number(i.price) * i.qty)}</span>
           </li>
         ))}
       </ul>
 
       {order.note && <p className="order-note">Note: {order.note}</p>}
-      {order.status === 'declined' && <p className="muted small">Declined: {order.declineReason}</p>}
+      {order.status === 'declined' && <p className="muted small">Declined: {order.decline_reason}</p>}
+      {order.status === 'cancelled' && <p className="muted small">Cancelled by the customer.</p>}
+      {error && <p className="form-error">{error}</p>}
 
       <div className="order-actions">
-        {order.status === 'new' && !declining && (
+        {order.status === 'placed' && !declining && (
           <>
-            <button type="button" className="btn btn-ghost" onClick={() => setDeclining(true)}>
+            <button type="button" className="btn btn-ghost" disabled={busy} onClick={() => setDeclining(true)}>
               Decline
             </button>
-            <button type="button" className="btn btn-primary" onClick={() => acceptOrder(order.id)}>
+            <button type="button" className="btn btn-primary" disabled={busy} onClick={() => act('accept')}>
               Accept and prepare
             </button>
           </>
         )}
-        {order.status === 'new' && declining && (
+        {order.status === 'placed' && declining && (
           <div className="decline-box">
             <p className="small">Why are you declining this order?</p>
             <div className="decline-reasons">
               {DECLINE_REASONS.map((reason) => (
-                <button key={reason} type="button" className="chip" onClick={() => declineOrder(order.id, reason)}>
+                <button
+                  key={reason}
+                  type="button"
+                  className="chip"
+                  disabled={busy}
+                  onClick={() => act('decline', reason)}
+                >
                   {reason}
                 </button>
               ))}
@@ -71,22 +102,23 @@ function OrderCard({ order }) {
           </div>
         )}
         {order.status === 'preparing' && (
-          <button type="button" className="btn btn-primary" onClick={() => markReady(order.id)}>
+          <button type="button" className="btn btn-primary" disabled={busy} onClick={() => act('ready')}>
             Mark ready for pickup
           </button>
         )}
         {order.status === 'ready' && (
-          <button type="button" className="btn btn-pili" onClick={() => markPickedUp(order.id)}>
-            Handed to rider
-          </button>
+          <p className="order-waiting">
+            {order.rider_id ? 'A rider is on the way to pick this up.' : 'Finding a rider near you...'}
+          </p>
         )}
+        {order.status === 'on_the_way' && <p className="order-waiting">The rider is delivering this order.</p>}
       </div>
     </article>
   );
 }
 
 export default function Orders() {
-  const { orders, simulateOrder, store } = useMerchant();
+  const { orders, store } = useMerchant();
   const [tab, setTab] = useState('new');
   const [, setTick] = useState(0);
 
@@ -96,24 +128,19 @@ export default function Orders() {
     return () => clearInterval(t);
   }, []);
 
-  const visible = orders.filter((o) => o.status === tab);
-  const countOf = (key) => orders.filter((o) => o.status === key).length;
   const currentTab = TABS.find((t) => t.key === tab);
+  const visible = orders.filter((o) => currentTab.statuses.includes(o.status));
+  const countOf = (t) => orders.filter((o) => t.statuses.includes(o.status)).length;
 
   return (
     <div className="page">
-      <header className="page-head page-head-row">
-        <div>
-          <h1>Orders</h1>
-          <p className="muted">
-            {store.isOpen
-              ? 'New orders play a sound. Accept them quickly so a rider can be assigned.'
-              : 'Your store is closed, so no new orders will come in.'}
-          </p>
-        </div>
-        <button type="button" className="btn btn-outline" onClick={simulateOrder}>
-          Demo: simulate an order
-        </button>
+      <header className="page-head">
+        <h1>Orders</h1>
+        <p className="muted">
+          {store.is_open
+            ? 'New orders appear here instantly with a sound. Accept them quickly so a rider can be assigned.'
+            : 'Your store is closed, so no new orders will come in.'}
+        </p>
       </header>
 
       <div className="tabs" role="tablist">
@@ -127,7 +154,7 @@ export default function Orders() {
             onClick={() => setTab(t.key)}
           >
             {t.label}
-            {countOf(t.key) > 0 && <span className="tab-count">{countOf(t.key)}</span>}
+            {countOf(t) > 0 && <span className="tab-count">{countOf(t)}</span>}
           </button>
         ))}
       </div>
@@ -135,7 +162,7 @@ export default function Orders() {
       {visible.length === 0 ? (
         <div className="empty">
           <p>{currentTab.empty}</p>
-          <p className="muted small">Use "Demo: simulate an order" to see how orders work.</p>
+          <p className="muted small">Keep this page open while your store is open, so you hear new orders.</p>
         </div>
       ) : (
         <div className="order-grid">
