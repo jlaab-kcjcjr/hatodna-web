@@ -94,6 +94,14 @@ function RiderReview({ rider, deliveries, onClose }) {
         {(rider.status === 'suspended' || rider.status === 'rejected') && rider.status_note && (
           <p className="note-box">Reason: {rider.status_note}</p>
         )}
+
+        {rider.status === 'pending' && rider.resubmitted_at && (
+          <p className="note-box resubmit-note">
+            Resubmitted {ago(rider.resubmitted_at)} after changes were requested.
+            {rider.last_rejection_note ? ` Previous reason: ${rider.last_rejection_note}` : ''}
+          </p>
+        )}
+
         {rider.status === 'orientation' && rider.orientation_note && (
           <p className="note-box orientation-box">
             <strong>Orientation schedule:</strong>
@@ -293,7 +301,9 @@ export default function Riders() {
   const reviewing = riders.find((r) => r.id === reviewId);
 
   const cardLine = (r) => {
-    if (r.status === 'pending') return `Applied ${ago(r.created_at)}`;
+    if (r.status === 'pending') {
+      return r.resubmitted_at ? `Resubmitted ${ago(r.resubmitted_at)}` : `Applied ${ago(r.created_at)}`;
+    }
     if (r.status === 'orientation') return `Orientation: ${r.orientation_note.split('\n')[0]}`;
     if (r.status === 'approved') return `${deliveriesOf(r.id)} deliveries${r.is_online ? ', online now' : ''}`;
     return r.status_note;
