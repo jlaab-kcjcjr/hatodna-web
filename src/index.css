@@ -645,3 +645,7 @@ html { scroll-behavior: smooth; }
 .permits-intro { margin: -0.5rem 0 0.5rem; }
 .setup-permits { margin-top: 1rem; }
 .setup-permits h2 { margin-bottom: 0.375rem; }
+
+/* ===== Partner sign-up confirmation ===== */
+.code-input { font-family: var(--font-display); font-size: 1.75rem; letter-spacing: 0.4em; text-align: center; }
+.login-resend { display: block; margin: 0.75rem auto 0; }
