@@ -143,6 +143,13 @@ export function MerchantProvider({ children }) {
 
   const toggleOpen = () => updateStore({ is_open: !store.is_open });
 
+  // Sends a rejected store back for review. The database checks the location and required permits.
+  const resubmitStore = async () => {
+    const { data, error } = await supabase.rpc('resubmit_store', { p_store_id: store.id });
+    check(error, 'Could not resubmit your store.');
+    setStore(data);
+  };
+
   const saveHours = async (rows) => {
     const { data, error } = await supabase
       .from('store_hours')
@@ -256,6 +263,7 @@ export function MerchantProvider({ children }) {
         deleteProduct,
         toggleAvailable,
         orderAction,
+        resubmitStore,
       }}
     >
       {children}

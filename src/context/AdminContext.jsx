@@ -5,7 +5,7 @@ import { useAuth } from './AuthContext';
 const AdminContext = createContext(null);
 
 const RIDER_SELECT = '*, profile:profiles(full_name, phone), rider_documents(doc_type, file_path)';
-const STORE_SELECT = '*, store_permits(permit_type, file_path)';
+const STORE_SELECT = '*, store_permits(permit_type, file_path), products(count)';
 const ORDER_SELECT = '*, store:stores(name), rider:riders(profile:profiles(full_name))';
 
 function check(error, fallback) {
@@ -85,12 +85,31 @@ export function AdminProvider({ children }) {
     };
   }, [userId, isAdmin, loadOrders]);
 
-  const setRiderStatus = async (id, status, note = '') => {
-    const changes = { status, status_note: note, reviewed_at: new Date().toISOString() };
+  // Emails the rider about the decision. The status is already saved even if the email fails.
+  const notifyRider = async (riderId) => {
+    const { data, error } = await supabase.functions.invoke('notify-rider', { body: { riderId } });
+    return !error && !data?.error;
+  };
+
+    const setRiderStatus = async (id, status, note = '', extra = {}) => {
+    const changes = { ...extra, status, status_note: note, reviewed_at: new Date().toISOString() };
     if (status !== 'approved') changes.is_online = false;
     const { data, error } = await supabase.from('riders').update(changes).eq('id', id).select().single();
     check(error, 'Could not update the rider.');
     setRiders((list) => list.map((r) => (r.id === id ? { ...r, ...data } : r)));
+
+    if (['orientation', 'approved', 'rejected', 'suspended'].includes(status)) {
+      const emailed = await notifyRider(id);
+      if (!emailed) {
+        window.alert('The rider was updated, but the email could not be sent. Please contact them by phone instead.');
+      }
+    }
+  };
+
+  // Emails the store owner about the decision. The status is already saved even if the email fails.
+  const notifyStoreOwner = async (storeId) => {
+    const { data, error } = await supabase.functions.invoke('notify-store', { body: { storeId } });
+    return !error && !data?.error;
   };
 
   const setStoreStatus = async (id, status, note = '', extra = {}) => {
@@ -99,6 +118,15 @@ export function AdminProvider({ children }) {
     const { data, error } = await supabase.from('stores').update(changes).eq('id', id).select().single();
     check(error, 'Could not update the store.');
     setStores((list) => list.map((s) => (s.id === id ? { ...s, ...data } : s)));
+
+    if (['active', 'rejected', 'suspended'].includes(status)) {
+      const emailed = await notifyStoreOwner(id);
+      if (!emailed) {
+        window.alert(
+          `${data.name} was updated, but the email to the owner could not be sent. Please call them at ${data.phone || 'their number'} instead.`
+        );
+      }
+    }
   };
 
   const setStoreCommission = async (id, commissionPercent) => {

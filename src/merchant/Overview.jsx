@@ -2,10 +2,12 @@ import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useMerchant } from '../context/MerchantContext';
 import { peso, isToday, greeting, timeAgo } from '../utils/format';
+import SetupChecklist from './SetupChecklist';
 
 export default function Overview() {
   const { profile } = useAuth();
   const { store, orders, products, toggleOpen } = useMerchant();
+  if (store.status !== 'active') return <SetupChecklist />;
 
   const counted = orders.filter((o) => o.status !== 'declined' && o.status !== 'cancelled');
   const today = counted.filter((o) => isToday(o.created_at));

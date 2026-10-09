@@ -3,6 +3,7 @@
 export const STATUS_LABEL = {
   pending: 'Pending review',
   approved: 'Approved',
+  orientation: 'Orientation',  
   active: 'Active',
   suspended: 'Suspended',
   rejected: 'Rejected',

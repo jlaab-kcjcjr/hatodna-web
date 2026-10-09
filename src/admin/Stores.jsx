@@ -90,6 +90,13 @@ function StoreReview({ store, onClose }) {
           <p className="note-box">Reason: {store.status_note}</p>
         )}
 
+        {store.status === 'pending' && store.resubmitted_at && (
+          <p className="note-box resubmit-note">
+            Resubmitted {ago(store.resubmitted_at)} after changes were requested.
+            {store.last_rejection_note ? ` Previous reason: ${store.last_rejection_note}` : ''}
+          </p>
+        )}
+
         <dl className="detail-list">
           <dt>Owner</dt>
           <dd>{store.owner_name || 'Not provided'}</dd>
@@ -111,7 +118,36 @@ function StoreReview({ store, onClose }) {
           </dd>
           <dt>Registered</dt>
           <dd>{ago(store.created_at)}</dd>
+          <dt>Location</dt>
+          <dd>
+            {store.lat != null ? (
+              <a
+                className="link"
+                href={`https://www.google.com/maps?q=${store.lat},${store.lng}`}
+                target="_blank"
+                rel="noreferrer"
+              >
+                Pinned, view on Google Maps
+              </a>
+            ) : (
+              'Not pinned yet'
+            )}
+          </dd>
+          <dt>Menu</dt>
+          <dd>
+            {store.products?.[0]?.count ?? 0} {(store.products?.[0]?.count ?? 0) === 1 ? 'product' : 'products'}
+          </dd>
         </dl>
+
+        {store.status === 'pending' && (store.lat == null || !(store.products?.[0]?.count > 0)) && (
+          <p className="note-box">
+            Setup not finished:{' '}
+            {[store.lat == null && 'location not pinned', !(store.products?.[0]?.count > 0) && 'no products yet']
+              .filter(Boolean)
+              .join(', ')}
+            . You can still approve, but customers can't order until both are done.
+          </p>
+        )}
 
         <h3 className="modal-section">Permits</h3>
         <div className="doc-grid">
@@ -139,7 +175,7 @@ function StoreReview({ store, onClose }) {
             );
           })}
         </div>
-        
+
         <p className="muted small">Tap a permit to open the full file. Links expire after 1 hour.</p>
 
         {store.status !== 'rejected' && (
@@ -314,7 +350,9 @@ export default function Stores() {
               </p>
               <p className="muted small">
                 {s.status === 'pending'
-                  ? `Registered ${ago(s.created_at)}`
+                  ? s.resubmitted_at
+                    ? `Resubmitted ${ago(s.resubmitted_at)}`
+                    : `Registered ${ago(s.created_at)}`
                   : s.status === 'active'
                     ? `Commission: ${s.commission_percent}%${s.is_open ? ', open now' : ', closed'}`
                     : s.status_note}

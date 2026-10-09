@@ -111,7 +111,8 @@ export default function StoreSettings() {
             />
           </label>
           <p className="muted small">
-            Category: {store.category}, Town: {store.town}, Commission: {store.commission_percent}%
+            Category: {store.category}, Town: {store.town}, Commission:{' '}
+            {store.commission_percent != null ? `${store.commission_percent}%` : 'set after approval'}
           </p>
         </section>
 
