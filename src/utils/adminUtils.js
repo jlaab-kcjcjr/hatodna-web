@@ -1,18 +1,19 @@
-// How much HatodNa earns from one order: store commission + its share of the delivery fee + service fee.
-export function platformRevenue(order, store, settings) {
-  if (order.status === 'cancelled') return 0;
-  const commissionPercent = store?.commissionPercent ?? settings.defaultCommissionPercent;
-  const commission = Math.round((order.subtotal * commissionPercent) / 100);
-  const deliveryCut = Math.round((order.deliveryFee * (100 - settings.riderSharePercent)) / 100);
-  return commission + deliveryCut + settings.serviceFee;
+export { timeAgo as ago } from './format';
+
+// What HatodNa earns from one order: store commission + its share of the delivery fee + service fee.
+// These amounts are calculated and saved by the database when the order is placed.
+export function platformRevenue(order) {
+  if (order.status === 'cancelled' || order.status === 'declined') return 0;
+  return (
+    Number(order.commission_amount) +
+    Number(order.delivery_fee) -
+    Number(order.rider_earning) +
+    Number(order.service_fee)
+  );
 }
 
-export function ago(timestamp) {
-  const minutes = Math.floor((Date.now() - timestamp) / 60000);
-  if (minutes < 1) return 'just now';
-  if (minutes < 60) return `${minutes} min ago`;
-  const hours = Math.floor(minutes / 60);
-  if (hours < 24) return `${hours} hr ago`;
-  const days = Math.floor(hours / 24);
-  return `${days} ${days === 1 ? 'day' : 'days'} ago`;
+// Phone logins are saved like "639171234567"; show them as "+639171234567".
+export function formatPhone(phone) {
+  if (!phone) return 'Not provided';
+  return phone.startsWith('+') ? phone : `+${phone}`;
 }

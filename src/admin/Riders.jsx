@@ -1,8 +1,8 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Search, FileText, X } from 'lucide-react';
 import { useAdmin } from '../context/AdminContext';
 import { STATUS_LABEL, DOC_LABELS, requiredDocsFor } from '../data/adminData';
-import { ago } from '../utils/adminUtils';
+import { ago, formatPhone } from '../utils/adminUtils';
 
 const TABS = [
   { key: 'pending', label: 'Applications' },
@@ -11,18 +11,40 @@ const TABS = [
   { key: 'rejected', label: 'Rejected' },
 ];
 
-function RiderReview({ rider, onClose }) {
-  const { setRiderStatus } = useAdmin();
+function RiderReview({ rider, deliveries, onClose }) {
+  const { setRiderStatus, getFileUrls } = useAdmin();
   const [mode, setMode] = useState(null); // 'reject' or 'suspend'
   const [reason, setReason] = useState('');
   const [error, setError] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [urls, setUrls] = useState({});
 
+  const docs = rider.rider_documents ?? [];
   const required = requiredDocsFor(rider.vehicle);
-  const missingDocs = required.filter((k) => !rider.docs.includes(k));
+  const missingDocs = required.filter((k) => !docs.some((d) => d.doc_type === k));
+  const name = rider.profile?.full_name || 'Unnamed rider';
 
-  const act = (status, note = '') => {
-    setRiderStatus(rider.id, status, note);
-    onClose();
+  useEffect(() => {
+    let cancelled = false;
+    getFileUrls('rider-documents', docs.map((d) => ({ key: d.doc_type, path: d.file_path }))).then((result) => {
+      if (!cancelled) setUrls(result);
+    });
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [rider.id]);
+
+  const act = async (status, note = '') => {
+    setBusy(true);
+    setError('');
+    try {
+      await setRiderStatus(rider.id, status, note);
+      onClose();
+    } catch (err) {
+      setError(err.message);
+      setBusy(false);
+    }
   };
 
   const confirmReason = () => {
@@ -34,7 +56,7 @@ function RiderReview({ rider, onClose }) {
   };
 
   return (
-    <div className="modal-backdrop" onClick={onClose}>
+    <div className="modal-backdrop" onClick={busy ? undefined : onClose}>
       <div
         className="modal modal-wide"
         role="dialog"
@@ -43,20 +65,20 @@ function RiderReview({ rider, onClose }) {
         onClick={(e) => e.stopPropagation()}
       >
         <div className="modal-head">
-          <h2 id="rider-review-title">{rider.name}</h2>
-          <button type="button" className="icon-btn" onClick={onClose} aria-label="Close">
+          <h2 id="rider-review-title">{name}</h2>
+          <button type="button" className="icon-btn" onClick={onClose} aria-label="Close" disabled={busy}>
             <X size={20} />
           </button>
         </div>
 
         <span className={`status status-${rider.status}`}>{STATUS_LABEL[rider.status]}</span>
-        {(rider.status === 'suspended' || rider.status === 'rejected') && rider.note && (
-          <p className="note-box">Reason: {rider.note}</p>
+        {(rider.status === 'suspended' || rider.status === 'rejected') && rider.status_note && (
+          <p className="note-box">Reason: {rider.status_note}</p>
         )}
 
         <dl className="detail-list">
           <dt>Mobile</dt>
-          <dd>{rider.phone}</dd>
+          <dd>{formatPhone(rider.profile?.phone)}</dd>
           <dt>Service area</dt>
           <dd>{rider.town}</dd>
           <dt>Vehicle</dt>
@@ -65,11 +87,11 @@ function RiderReview({ rider, onClose }) {
             {rider.plate ? `, ${rider.plate}` : ''}
           </dd>
           <dt>Applied</dt>
-          <dd>{ago(rider.appliedAt)}</dd>
+          <dd>{ago(rider.created_at)}</dd>
           {rider.status !== 'pending' && (
             <>
               <dt>Deliveries</dt>
-              <dd>{rider.deliveries}</dd>
+              <dd>{deliveries}</dd>
               <dt>Rating</dt>
               <dd>{rider.rating ?? 'No ratings yet'}</dd>
             </>
@@ -79,17 +101,28 @@ function RiderReview({ rider, onClose }) {
         <h3 className="modal-section">Documents</h3>
         <div className="doc-grid">
           {required.map((k) => {
-            const has = rider.docs.includes(k);
+            const doc = docs.find((d) => d.doc_type === k);
+            const url = urls[k];
+            if (!doc) {
+              return (
+                <div key={k} className="doc-tile missing">
+                  <FileText size={22} aria-hidden="true" />
+                  <span>{DOC_LABELS[k]}</span>
+                  <span className="small">Missing</span>
+                </div>
+              );
+            }
             return (
-              <div key={k} className={`doc-tile${has ? '' : ' missing'}`}>
-                <FileText size={22} aria-hidden="true" />
-                <span>{DOC_LABELS[k]}</span>
-                <span className="small">{has ? 'Submitted' : 'Missing'}</span>
-              </div>
+              <a key={k} className="doc-tile doc-tile-photo" href={url || undefined} target="_blank" rel="noreferrer">
+                {url ? <img src={url} alt={DOC_LABELS[k]} /> : <FileText size={22} aria-hidden="true" />}
+                <span className="doc-caption">{DOC_LABELS[k]}</span>
+              </a>
             );
           })}
         </div>
-        <p className="muted small">In the live system, you'll tap a document to see the photo the rider uploaded.</p>
+        <p className="muted small">Tap a document to open the full photo. Links expire after 1 hour.</p>
+
+        {error && <p className="form-error">{error}</p>}
 
         {mode ? (
           <div className="reason-box">
@@ -109,19 +142,11 @@ function RiderReview({ rider, onClose }) {
                 }
               />
             </label>
-            {error && <p className="form-error">{error}</p>}
             <div className="modal-actions">
-              <button
-                type="button"
-                className="btn btn-ghost"
-                onClick={() => {
-                  setMode(null);
-                  setError('');
-                }}
-              >
+              <button type="button" className="btn btn-ghost" disabled={busy} onClick={() => setMode(null)}>
                 Cancel
               </button>
-              <button type="button" className="btn btn-primary" onClick={confirmReason}>
+              <button type="button" className="btn btn-primary" disabled={busy} onClick={confirmReason}>
                 {mode === 'reject' ? 'Reject application' : 'Suspend rider'}
               </button>
             </div>
@@ -136,13 +161,13 @@ function RiderReview({ rider, onClose }) {
             <div className="modal-actions">
               {rider.status === 'pending' && (
                 <>
-                  <button type="button" className="btn btn-ghost" onClick={() => setMode('reject')}>
+                  <button type="button" className="btn btn-ghost" disabled={busy} onClick={() => setMode('reject')}>
                     Reject
                   </button>
                   <button
                     type="button"
                     className="btn btn-pili"
-                    disabled={missingDocs.length > 0}
+                    disabled={busy || missingDocs.length > 0}
                     onClick={() => act('approved')}
                   >
                     Approve rider
@@ -150,17 +175,22 @@ function RiderReview({ rider, onClose }) {
                 </>
               )}
               {rider.status === 'approved' && (
-                <button type="button" className="btn btn-ghost danger-text" onClick={() => setMode('suspend')}>
+                <button
+                  type="button"
+                  className="btn btn-ghost danger-text"
+                  disabled={busy}
+                  onClick={() => setMode('suspend')}
+                >
                   Suspend rider
                 </button>
               )}
               {rider.status === 'suspended' && (
-                <button type="button" className="btn btn-pili" onClick={() => act('approved')}>
+                <button type="button" className="btn btn-pili" disabled={busy} onClick={() => act('approved')}>
                   Reinstate rider
                 </button>
               )}
               {rider.status === 'rejected' && (
-                <button type="button" className="btn btn-ghost" onClick={() => act('pending')}>
+                <button type="button" className="btn btn-ghost" disabled={busy} onClick={() => act('pending')}>
                   Move back to applications
                 </button>
               )}
@@ -173,14 +203,17 @@ function RiderReview({ rider, onClose }) {
 }
 
 export default function Riders() {
-  const { riders } = useAdmin();
+  const { riders, orders } = useAdmin();
   const [tab, setTab] = useState('pending');
   const [query, setQuery] = useState('');
   const [reviewId, setReviewId] = useState(null);
 
+  const deliveriesOf = (id) => orders.filter((o) => o.rider_id === id && o.status === 'delivered').length;
   const countOf = (key) => riders.filter((r) => r.status === key).length;
   const visible = riders.filter(
-    (r) => r.status === tab && `${r.name} ${r.town} ${r.phone}`.toLowerCase().includes(query.toLowerCase())
+    (r) =>
+      r.status === tab &&
+      `${r.profile?.full_name ?? ''} ${r.town} ${r.profile?.phone ?? ''}`.toLowerCase().includes(query.toLowerCase())
   );
   const reviewing = riders.find((r) => r.id === reviewId);
 
@@ -222,14 +255,14 @@ export default function Riders() {
       {visible.length === 0 ? (
         <div className="empty">
           <p>No riders here.</p>
-          <p className="muted small">Riders move between these tabs as you review them.</p>
+          <p className="muted small">Rider applications from the HatodNa Rider website appear in this list.</p>
         </div>
       ) : (
         <div className="person-grid">
           {visible.map((r) => (
             <article key={r.id} className="person">
               <div className="person-head">
-                <p className="person-name">{r.name}</p>
+                <p className="person-name">{r.profile?.full_name || 'Unnamed rider'}</p>
                 <span className={`status status-${r.status}`}>{STATUS_LABEL[r.status]}</span>
               </div>
               <p className="muted small">
@@ -238,10 +271,10 @@ export default function Riders() {
               </p>
               <p className="muted small">
                 {r.status === 'pending'
-                  ? `Applied ${ago(r.appliedAt)}`
+                  ? `Applied ${ago(r.created_at)}`
                   : r.status === 'approved'
-                    ? `${r.deliveries} deliveries, ${r.rating ?? 'no'} rating`
-                    : r.note}
+                    ? `${deliveriesOf(r.id)} deliveries${r.is_online ? ', online now' : ''}`
+                    : r.status_note}
               </p>
               <button type="button" className="btn btn-outline person-btn" onClick={() => setReviewId(r.id)}>
                 {r.status === 'pending' ? 'Review application' : 'View details'}
@@ -251,7 +284,14 @@ export default function Riders() {
         </div>
       )}
 
-      {reviewing && <RiderReview rider={reviewing} onClose={() => setReviewId(null)} />}
+      {reviewing && (
+        <RiderReview
+          key={reviewing.id}
+          rider={reviewing}
+          deliveries={deliveriesOf(reviewing.id)}
+          onClose={() => setReviewId(null)}
+        />
+      )}
     </div>
   );
 }

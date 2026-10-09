@@ -1,60 +1,76 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Search, FileText, X } from 'lucide-react';
 import { useAdmin } from '../context/AdminContext';
 import { STATUS_LABEL, PERMITS } from '../data/adminData';
 import { ago } from '../utils/adminUtils';
 
 const TABS = [
-  { key: 'pending', label: 'Applications' },
+  { key: 'pending', label: 'Registrations' },
   { key: 'active', label: 'Active' },
   { key: 'suspended', label: 'Suspended' },
   { key: 'rejected', label: 'Rejected' },
 ];
 
 function StoreReview({ store, onClose }) {
-  const { settings, setStoreStatus, setStoreCommission } = useAdmin();
-  const [commission, setCommission] = useState(String(store.commissionPercent ?? settings.defaultCommissionPercent));
+  const { settings, setStoreStatus, setStoreCommission, getFileUrls } = useAdmin();
+  const [commission, setCommission] = useState(
+    String(store.commission_percent ?? settings?.default_commission_percent ?? 15)
+  );
   const [mode, setMode] = useState(null); // 'reject' or 'suspend'
   const [reason, setReason] = useState('');
   const [error, setError] = useState('');
+  const [busy, setBusy] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [urls, setUrls] = useState({});
 
-  const missingPermits = PERMITS.filter((p) => p.required && !store.permits.includes(p.key));
+  const permits = store.store_permits ?? [];
   const commissionValue = Number(commission);
   const commissionValid = commission !== '' && commissionValue >= 0 && commissionValue <= 40;
 
-  const close = () => onClose();
+  useEffect(() => {
+    let cancelled = false;
+    getFileUrls('store-permits', permits.map((p) => ({ key: p.permit_type, path: p.file_path }))).then((result) => {
+      if (!cancelled) setUrls(result);
+    });
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [store.id]);
+
+  const run = async (task, closeAfter = true) => {
+    setBusy(true);
+    setError('');
+    try {
+      await task();
+      if (closeAfter) onClose();
+      else setBusy(false);
+    } catch (err) {
+      setError(err.message);
+      setBusy(false);
+    }
+  };
 
   const approve = () => {
-    if (!commissionValid) {
-      setError('Set a commission between 0% and 40%.');
-      return;
-    }
-    setStoreStatus(store.id, 'active', '', { commissionPercent: commissionValue });
-    close();
+    if (!commissionValid) return setError('Set a commission between 0% and 40%.');
+    run(() => setStoreStatus(store.id, 'active', '', { commission_percent: commissionValue }));
   };
 
   const saveCommission = () => {
-    if (!commissionValid) {
-      setError('Set a commission between 0% and 40%.');
-      return;
-    }
-    setStoreCommission(store.id, commissionValue);
-    setError('');
-    setSaved(true);
+    if (!commissionValid) return setError('Set a commission between 0% and 40%.');
+    run(async () => {
+      await setStoreCommission(store.id, commissionValue);
+      setSaved(true);
+    }, false);
   };
 
   const confirmReason = () => {
-    if (reason.trim().length < 5) {
-      setError('Write a short reason. The store owner will see it.');
-      return;
-    }
-    setStoreStatus(store.id, mode === 'reject' ? 'rejected' : 'suspended', reason.trim());
-    close();
+    if (reason.trim().length < 5) return setError('Write a short reason. The store owner will see it.');
+    run(() => setStoreStatus(store.id, mode === 'reject' ? 'rejected' : 'suspended', reason.trim()));
   };
 
   return (
-    <div className="modal-backdrop" onClick={close}>
+    <div className="modal-backdrop" onClick={busy ? undefined : onClose}>
       <div
         className="modal modal-wide"
         role="dialog"
@@ -64,44 +80,65 @@ function StoreReview({ store, onClose }) {
       >
         <div className="modal-head">
           <h2 id="store-review-title">{store.name}</h2>
-          <button type="button" className="icon-btn" onClick={close} aria-label="Close">
+          <button type="button" className="icon-btn" onClick={onClose} aria-label="Close" disabled={busy}>
             <X size={20} />
           </button>
         </div>
 
         <span className={`status status-${store.status}`}>{STATUS_LABEL[store.status]}</span>
-        {(store.status === 'suspended' || store.status === 'rejected') && store.note && (
-          <p className="note-box">Reason: {store.note}</p>
+        {(store.status === 'suspended' || store.status === 'rejected') && store.status_note && (
+          <p className="note-box">Reason: {store.status_note}</p>
         )}
 
         <dl className="detail-list">
           <dt>Owner</dt>
-          <dd>{store.owner}</dd>
+          <dd>{store.owner_name || 'Not provided'}</dd>
           <dt>Contact</dt>
-          <dd>{store.phone}</dd>
+          <dd>
+            {store.phone ? (
+              <a className="link" href={`tel:${store.phone}`}>
+                {store.phone}
+              </a>
+            ) : (
+              'Not provided'
+            )}
+          </dd>
           <dt>Category</dt>
           <dd>{store.category}</dd>
           <dt>Address</dt>
-          <dd>{store.address}</dd>
-          <dt>Applied</dt>
-          <dd>{ago(store.appliedAt)}</dd>
+          <dd>
+            {store.address}, {store.town}
+          </dd>
+          <dt>Registered</dt>
+          <dd>{ago(store.created_at)}</dd>
         </dl>
 
         <h3 className="modal-section">Permits</h3>
         <div className="doc-grid">
           {PERMITS.map((p) => {
-            const has = store.permits.includes(p.key);
+            const permit = permits.find((x) => x.permit_type === p.key);
+            const url = urls[p.key];
+            if (!permit) {
+              return (
+                <div key={p.key} className={`doc-tile${p.required ? ' missing' : ''}`}>
+                  <FileText size={22} aria-hidden="true" />
+                  <span>{p.label}</span>
+                  <span className="small">{p.required ? 'Not uploaded (required)' : 'Not uploaded'}</span>
+                </div>
+              );
+            }
             return (
-              <div key={p.key} className={`doc-tile${has ? '' : ' missing'}`}>
-                <FileText size={22} aria-hidden="true" />
-                <span>{p.label}</span>
-                <span className="small">
-                  {has ? 'Submitted' : p.required ? 'Missing (required)' : 'Not submitted'}
-                </span>
-              </div>
+              <a key={p.key} className="doc-tile doc-tile-photo" href={url || undefined} target="_blank" rel="noreferrer">
+                {url ? <img src={url} alt={p.label} /> : <FileText size={22} aria-hidden="true" />}
+                <span className="doc-caption">{p.label}</span>
+              </a>
             );
           })}
         </div>
+        <p className="muted small">
+          Permit uploads will be added to the partner portal later. For now, you can check permits in person or by
+          message before approving.
+        </p>
 
         {store.status !== 'rejected' && (
           <label className="field commission-field">
@@ -110,6 +147,7 @@ function StoreReview({ store, onClose }) {
               type="number"
               min="0"
               max="40"
+              step="0.5"
               value={commission}
               onChange={(e) => {
                 setCommission(e.target.value);
@@ -119,6 +157,8 @@ function StoreReview({ store, onClose }) {
             />
           </label>
         )}
+
+        {error && <p className="form-error">{error}</p>}
 
         {mode ? (
           <div className="reason-box">
@@ -133,88 +173,73 @@ function StoreReview({ store, onClose }) {
                 }}
                 placeholder={
                   mode === 'reject'
-                    ? "e.g. Please submit your Mayor's permit so we can approve you."
+                    ? "e.g. Please send a copy of your Mayor's permit so we can approve you."
                     : 'e.g. Repeated late order preparation.'
                 }
               />
             </label>
-            {error && <p className="form-error">{error}</p>}
             <div className="modal-actions">
-              <button
-                type="button"
-                className="btn btn-ghost"
-                onClick={() => {
-                  setMode(null);
-                  setError('');
-                }}
-              >
+              <button type="button" className="btn btn-ghost" disabled={busy} onClick={() => setMode(null)}>
                 Cancel
               </button>
-              <button type="button" className="btn btn-primary" onClick={confirmReason}>
-                {mode === 'reject' ? 'Reject application' : 'Suspend store'}
+              <button type="button" className="btn btn-primary" disabled={busy} onClick={confirmReason}>
+                {mode === 'reject' ? 'Reject registration' : 'Suspend store'}
               </button>
             </div>
           </div>
         ) : (
-          <>
-            {store.status === 'pending' && missingPermits.length > 0 && (
-              <p className="note-box">
-                Missing: {missingPermits.map((p) => p.label).join(', ')}. Ask the owner to submit it before approving.
-              </p>
+          <div className="modal-actions">
+            {store.status === 'pending' && (
+              <>
+                <button type="button" className="btn btn-ghost" disabled={busy} onClick={() => setMode('reject')}>
+                  Reject
+                </button>
+                <button type="button" className="btn btn-pili" disabled={busy} onClick={approve}>
+                  Approve store
+                </button>
+              </>
             )}
-            {error && <p className="form-error">{error}</p>}
-            <div className="modal-actions">
-              {store.status === 'pending' && (
-                <>
-                  <button type="button" className="btn btn-ghost" onClick={() => setMode('reject')}>
-                    Reject
-                  </button>
-                  <button
-                    type="button"
-                    className="btn btn-pili"
-                    disabled={missingPermits.length > 0}
-                    onClick={approve}
-                  >
-                    Approve store
-                  </button>
-                </>
-              )}
-              {store.status === 'active' && (
-                <>
-                  <button type="button" className="btn btn-ghost danger-text" onClick={() => setMode('suspend')}>
-                    Suspend store
-                  </button>
-                  <button type="button" className={`btn ${saved ? 'btn-pili' : 'btn-primary'}`} onClick={saveCommission}>
-                    {saved ? 'Saved' : 'Save commission'}
-                  </button>
-                </>
-              )}
-              {store.status === 'suspended' && (
+            {store.status === 'active' && (
+              <>
                 <button
                   type="button"
-                  className="btn btn-pili"
-                  onClick={() => {
-                    setStoreStatus(store.id, 'active');
-                    close();
-                  }}
+                  className="btn btn-ghost danger-text"
+                  disabled={busy}
+                  onClick={() => setMode('suspend')}
                 >
-                  Reinstate store
+                  Suspend store
                 </button>
-              )}
-              {store.status === 'rejected' && (
                 <button
                   type="button"
-                  className="btn btn-ghost"
-                  onClick={() => {
-                    setStoreStatus(store.id, 'pending');
-                    close();
-                  }}
+                  className={`btn ${saved ? 'btn-pili' : 'btn-primary'}`}
+                  disabled={busy}
+                  onClick={saveCommission}
                 >
-                  Move back to applications
+                  {saved ? 'Saved' : 'Save commission'}
                 </button>
-              )}
-            </div>
-          </>
+              </>
+            )}
+            {store.status === 'suspended' && (
+              <button
+                type="button"
+                className="btn btn-pili"
+                disabled={busy}
+                onClick={() => run(() => setStoreStatus(store.id, 'active'))}
+              >
+                Reinstate store
+              </button>
+            )}
+            {store.status === 'rejected' && (
+              <button
+                type="button"
+                className="btn btn-ghost"
+                disabled={busy}
+                onClick={() => run(() => setStoreStatus(store.id, 'pending'))}
+              >
+                Move back to registrations
+              </button>
+            )}
+          </div>
         )}
       </div>
     </div>
@@ -229,7 +254,7 @@ export default function Stores() {
 
   const countOf = (key) => stores.filter((s) => s.status === key).length;
   const visible = stores.filter(
-    (s) => s.status === tab && `${s.name} ${s.owner} ${s.town}`.toLowerCase().includes(query.toLowerCase())
+    (s) => s.status === tab && `${s.name} ${s.owner_name} ${s.town}`.toLowerCase().includes(query.toLowerCase())
   );
   const reviewing = stores.find((s) => s.id === reviewId);
 
@@ -237,7 +262,7 @@ export default function Stores() {
     <div className="page">
       <header className="page-head">
         <h1>Stores</h1>
-        <p className="muted">Approve new partners and set the commission each store pays.</p>
+        <p className="muted">Approve store registrations and set the commission each store pays.</p>
       </header>
 
       <div className="tabs" role="tablist">
@@ -271,7 +296,7 @@ export default function Stores() {
       {visible.length === 0 ? (
         <div className="empty">
           <p>No stores here.</p>
-          <p className="muted small">Stores move between these tabs as you review them.</p>
+          <p className="muted small">Stores registered in the partner portal appear in this list.</p>
         </div>
       ) : (
         <div className="person-grid">
@@ -282,17 +307,18 @@ export default function Stores() {
                 <span className={`status status-${s.status}`}>{STATUS_LABEL[s.status]}</span>
               </div>
               <p className="muted small">
-                {s.category} in {s.town}, owned by {s.owner}
+                {s.category} in {s.town}
+                {s.owner_name ? `, owned by ${s.owner_name}` : ''}
               </p>
               <p className="muted small">
                 {s.status === 'pending'
-                  ? `Applied ${ago(s.appliedAt)}`
+                  ? `Registered ${ago(s.created_at)}`
                   : s.status === 'active'
-                    ? `Commission: ${s.commissionPercent}%`
-                    : s.note}
+                    ? `Commission: ${s.commission_percent}%${s.is_open ? ', open now' : ', closed'}`
+                    : s.status_note}
               </p>
               <button type="button" className="btn btn-outline person-btn" onClick={() => setReviewId(s.id)}>
-                {s.status === 'pending' ? 'Review application' : 'View details'}
+                {s.status === 'pending' ? 'Review registration' : 'View details'}
               </button>
             </article>
           ))}

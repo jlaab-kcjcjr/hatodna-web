@@ -15,6 +15,7 @@ import AdminLayout from './admin/AdminLayout';
 import AdminOverview from './admin/AdminOverview';
 import Riders from './admin/Riders';
 import Stores from './admin/Stores';
+import Applications from './admin/Applications';
 import AdminOrders from './admin/AdminOrders';
 import Settings from './admin/Settings';
 
@@ -40,6 +41,7 @@ export default function App() {
               <Route index element={<AdminOverview />} />
               <Route path="riders" element={<Riders />} />
               <Route path="stores" element={<Stores />} />
+              <Route path="applications" element={<Applications />} />
               <Route path="orders" element={<AdminOrders />} />
               <Route path="settings" element={<Settings />} />
             </Route>

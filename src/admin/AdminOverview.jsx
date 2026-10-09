@@ -6,20 +6,23 @@ import { platformRevenue, ago } from '../utils/adminUtils';
 import { peso, isToday, greeting } from '../utils/format';
 
 export default function AdminOverview() {
-  const { riders, stores, orders, settings, pendingRiders, pendingStores } = useAdmin();
-  const storeById = Object.fromEntries(stores.map((s) => [s.id, s]));
+  const { riders, stores, orders, pendingRiders, pendingStores, newApplications } = useAdmin();
 
-  const today = orders.filter((o) => isToday(o.createdAt) && o.status !== 'cancelled');
-  const sales = today.reduce((sum, o) => sum + o.subtotal, 0);
-  const revenue = today.reduce((sum, o) => sum + platformRevenue(o, storeById[o.storeId], settings), 0);
+  const today = orders.filter(
+    (o) => isToday(o.created_at) && o.status !== 'cancelled' && o.status !== 'declined'
+  );
+  const sales = today.reduce((sum, o) => sum + Number(o.subtotal), 0);
+  const revenue = today.reduce((sum, o) => sum + platformRevenue(o), 0);
   const activeRiders = riders.filter((r) => r.status === 'approved').length;
+  const onlineRiders = riders.filter((r) => r.status === 'approved' && r.is_online).length;
   const activeStores = stores.filter((s) => s.status === 'active').length;
-  const recent = [...orders].sort((a, b) => b.createdAt - a.createdAt).slice(0, 5);
+  const recent = orders.slice(0, 5);
 
   const attention = [
     { label: 'Rider applications to review', count: pendingRiders, to: '/admin/riders' },
-    { label: 'Store applications to review', count: pendingStores, to: '/admin/stores' },
-    { label: 'Orders still being prepared', count: orders.filter((o) => o.status === 'preparing').length, to: '/admin/orders' },
+    { label: 'Store registrations to review', count: pendingStores, to: '/admin/stores' },
+    { label: 'New partner applications to call', count: newApplications, to: '/admin/applications' },
+    { label: 'Orders waiting for a store to accept', count: orders.filter((o) => o.status === 'placed').length, to: '/admin/orders' },
   ];
 
   return (
@@ -28,10 +31,6 @@ export default function AdminOverview() {
         <p className="greet">{greeting()}, JLAAB team</p>
         <h1>Platform overview</h1>
       </header>
-
-      <p className="banner banner-info">
-        Demo data: until the backend is connected, changes here don't reach the rider and partner websites yet.
-      </p>
 
       <div className="stats stats-4">
         <div className="stat stat-feature">
@@ -47,10 +46,11 @@ export default function AdminOverview() {
           <p className="stat-value">{today.length}</p>
         </div>
         <div className="stat">
-          <p className="stat-label">Active riders / stores</p>
+          <p className="stat-label">Riders online / approved</p>
           <p className="stat-value">
-            {activeRiders} / {activeStores}
+            {onlineRiders} / {activeRiders}
           </p>
+          <p className="muted small">{activeStores} active stores</p>
         </div>
       </div>
 
@@ -75,17 +75,21 @@ export default function AdminOverview() {
               See all orders
             </Link>
           </div>
-          {recent.map((o) => (
-            <div key={o.id} className="mini-order">
-              <div>
-                <strong>{o.code}</strong> <span className="muted">{storeById[o.storeId]?.name}</span>
-                <p className="muted small">
-                  {o.customer}, {ago(o.createdAt)}
-                </p>
+          {recent.length === 0 ? (
+            <p className="muted">No orders yet. They'll appear here live as customers order.</p>
+          ) : (
+            recent.map((o) => (
+              <div key={o.id} className="mini-order">
+                <div>
+                  <strong>{o.code}</strong> <span className="muted">{o.store?.name}</span>
+                  <p className="muted small">
+                    {o.customer_name || 'Customer'}, {ago(o.created_at)}
+                  </p>
+                </div>
+                <span className={`status status-${o.status}`}>{STATUS_LABEL[o.status]}</span>
               </div>
-              <span className={`status status-${o.status}`}>{STATUS_LABEL[o.status]}</span>
-            </div>
-          ))}
+            ))
+          )}
         </section>
       </div>
     </div>
