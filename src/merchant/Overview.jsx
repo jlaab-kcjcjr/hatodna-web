@@ -53,6 +53,17 @@ export default function Overview() {
         </div>
       )}
 
+      {store.lat == null && (
+        <div className="banner banner-closed">
+          <p>
+            <strong>Pin your store on the map.</strong> Customers can't order from you until your location is set.
+          </p>
+          <Link to="/merchant/settings" className="btn btn-primary">
+            Set location
+          </Link>
+        </div>
+      )}
+
       <div className="stats stats-4">
         <div className="stat stat-feature">
           <p className="stat-label">You earn today</p>

@@ -6,6 +6,7 @@ import { LINKS } from '../config/links';
 import { PERMITS } from '../data/adminData';
 import BanigBand from '../components/BanigBand';
 import PermitUploader from './PermitUploader';
+import MapPicker from '../components/MapPicker';
 
 const CATEGORIES = ['Food', 'Grocery', 'Pharmacy', 'Other'];
 const TOWNS = ['Legazpi City', 'Daraga', 'Tabaco City', 'Ligao City', 'Camalig', 'Guinobatan', 'Sto. Domingo'];
@@ -96,6 +97,7 @@ export default function StoreSetup() {
     prep_minutes: '20',
   });
   const [permitFiles, setPermitFiles] = useState({}); // { registration: File, mayors: File, ... }
+  const [location, setLocation] = useState(null);
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
 
@@ -133,6 +135,7 @@ export default function StoreSetup() {
     if (form.address.trim().length < 5) return setError('Enter your full store address so riders can find you.');
     const prep = Number(form.prep_minutes);
     if (!prep || prep < 5 || prep > 120) return setError('Set a preparation time between 5 and 120 minutes.');
+    if (!location) return setError('Pin your store on the map so riders can find you.');
     const missing = PERMITS.filter((p) => p.required && !permitFiles[p.key]);
     if (missing.length > 0) return setError(`Add your ${missing.map((p) => p.label).join(' and ')}.`);
 
@@ -147,6 +150,8 @@ export default function StoreSetup() {
           town: form.town,
           address: form.address.trim(),
           prep_minutes: prep,
+          lat: location.lat,
+          lng: location.lng,
         },
         permitFiles
       );
@@ -225,6 +230,20 @@ export default function StoreSetup() {
             onChange={(e) => set('prep_minutes', e.target.value)}
           />
         </label>
+
+        <h2 className="setup-subtitle">Store location</h2>
+        <p className="muted small">
+          Stand inside your store and tap "Use my current location," or tap the map where your entrance is. Riders and
+          delivery fees use this pin.
+        </p>
+        <MapPicker
+          value={location}
+          onChange={(point) => {
+            setLocation(point);
+            setError('');
+          }}
+          kind="store"
+        />
 
         <h2 className="setup-subtitle">Business permits</h2>
         <p className="muted small">

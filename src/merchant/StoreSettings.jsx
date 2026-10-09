@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useMerchant } from '../context/MerchantContext';
 import PermitUploader from './PermitUploader';
+import MapPicker from '../components/MapPicker';
 
 const DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 const DISPLAY_ORDER = [1, 2, 3, 4, 5, 6, 0]; // Monday first
@@ -26,6 +27,7 @@ export default function StoreSettings() {
       };
     })
   );
+  const [location, setLocation] = useState(store.lat != null ? { lat: store.lat, lng: store.lng } : null);
   const [error, setError] = useState('');
   const [saved, setSaved] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -48,6 +50,7 @@ export default function StoreSettings() {
     if (!form.address.trim()) return setError('Enter your store address so riders can find you.');
     const prep = Number(form.prep_minutes);
     if (!prep || prep < 5 || prep > 120) return setError('Set a preparation time between 5 and 120 minutes.');
+    if (!location) return setError('Pin your store location on the map so customers can order from you.');
     const badDay = days.find((d) => !d.is_closed && d.open_time >= d.close_time);
     if (badDay) return setError(`On ${DAY_NAMES[badDay.day_of_week]}, the closing time must be after the opening time.`);
 
@@ -59,6 +62,8 @@ export default function StoreSettings() {
         phone: form.phone.trim(),
         address: form.address.trim(),
         prep_minutes: prep,
+        lat: location.lat,
+        lng: location.lng,
       });
       await saveHours(days);
       setSaved(true);
@@ -140,6 +145,24 @@ export default function StoreSettings() {
           ))}
         </section>
       </div>
+
+      <section className="card permits-card">
+        <h2 className="card-title">Store location</h2>
+        <p className="muted small permits-intro">
+          {location
+            ? 'This pin is where riders pick up orders. Move it if it is not exactly at your entrance, then save.'
+            : 'Your store is not on the map yet. Customers cannot order until you pin your location and save.'}
+        </p>
+        <MapPicker
+          value={location}
+          onChange={(point) => {
+            setLocation(point);
+            setError('');
+            setSaved(false);
+          }}
+          kind="store"
+        />
+      </section>
 
       {error && <p className="form-error save-error">{error}</p>}
       <div className="save-bar">
