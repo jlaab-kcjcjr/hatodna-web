@@ -39,3 +39,20 @@ export function publicUrl(bucket, path) {
   if (!path) return '';
   return supabase.storage.from(bucket).getPublicUrl(path).data.publicUrl;
 }
+
+const MAX_PDF_BYTES = 10 * 1024 * 1024;
+
+// Uploads a permit or document to a private bucket. Photos are shrunk; PDF scans are uploaded as they are.
+export async function uploadDocument(bucket, userId, file, prefix = 'doc') {
+  const isPdf = file.type === 'application/pdf';
+  if (!isPdf && !file.type.startsWith('image/')) throw new Error('Upload a photo or a PDF file.');
+  if (isPdf && file.size > MAX_PDF_BYTES) throw new Error('That PDF is too large. Use one under 10 MB.');
+
+  const body = isPdf ? file : await compressImage(file, 1800, 0.85);
+  const path = `${userId}/${prefix}-${crypto.randomUUID()}.${isPdf ? 'pdf' : 'jpg'}`;
+  const { error } = await supabase.storage
+    .from(bucket)
+    .upload(path, body, { contentType: isPdf ? 'application/pdf' : 'image/jpeg' });
+  if (error) throw new Error('Could not upload the file. Check your connection and try again.');
+  return path;
+}

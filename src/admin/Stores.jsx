@@ -127,18 +127,20 @@ function StoreReview({ store, onClose }) {
                 </div>
               );
             }
+                        const isPdf = permit.file_path.endsWith('.pdf');
             return (
               <a key={p.key} className="doc-tile doc-tile-photo" href={url || undefined} target="_blank" rel="noreferrer">
-                {url ? <img src={url} alt={p.label} /> : <FileText size={22} aria-hidden="true" />}
-                <span className="doc-caption">{p.label}</span>
+                {url && !isPdf ? <img src={url} alt={p.label} /> : <FileText size={26} aria-hidden="true" />}
+                <span className="doc-caption">
+                  {p.label}
+                  {isPdf ? ' (PDF)' : ''}
+                </span>
               </a>
             );
           })}
         </div>
-        <p className="muted small">
-          Permit uploads will be added to the partner portal later. For now, you can check permits in person or by
-          message before approving.
-        </p>
+        
+        <p className="muted small">Tap a permit to open the full file. Links expire after 1 hour.</p>
 
         {store.status !== 'rejected' && (
           <label className="field commission-field">

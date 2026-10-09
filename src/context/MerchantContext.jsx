@@ -1,7 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from './AuthContext';
-import { uploadImage } from '../utils/images';
+import { uploadImage, uploadDocument } from '../utils/images';
 import { playChime } from '../utils/chime';
 
 const MerchantContext = createContext(null);
@@ -19,6 +19,7 @@ export function MerchantProvider({ children }) {
   const [store, setStore] = useState(null);
   const [products, setProducts] = useState([]);
   const [hours, setHours] = useState([]);
+  const [permits, setPermits] = useState([]);
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState('');
@@ -28,6 +29,7 @@ export function MerchantProvider({ children }) {
       setStore(null);
       setProducts([]);
       setHours([]);
+      setPermits([]);
       setOrders([]);
       setLoading(false);
       return;
@@ -46,9 +48,10 @@ export function MerchantProvider({ children }) {
       setStore(myStore);
 
       if (myStore) {
-        const [p, h, o] = await Promise.all([
+        const [p, h, pm, o] = await Promise.all([
           supabase.from('products').select('*').eq('store_id', myStore.id).order('created_at', { ascending: false }),
           supabase.from('store_hours').select('*').eq('store_id', myStore.id).order('day_of_week'),
+          supabase.from('store_permits').select('*').eq('store_id', myStore.id),
           supabase
             .from('orders')
             .select(ORDER_SELECT)
@@ -58,9 +61,11 @@ export function MerchantProvider({ children }) {
         ]);
         check(p.error, 'Could not load your products.');
         check(h.error, 'Could not load your hours.');
+        check(pm.error, 'Could not load your permits.');
         check(o.error, 'Could not load your orders.');
         setProducts(p.data);
         setHours(h.data);
+        setPermits(pm.data);
         setOrders(o.data);
       }
     } catch (err) {
@@ -135,6 +140,32 @@ export function MerchantProvider({ children }) {
     setHours([...data].sort((a, b) => a.day_of_week - b.day_of_week));
   };
 
+  // Uploads a permit privately, then saves (or replaces) it for this store.
+  const uploadPermit = async (permitType, file) => {
+    const path = await uploadDocument('store-permits', userId, file, permitType);
+    const { data, error } = await supabase
+      .from('store_permits')
+      .upsert(
+        { store_id: store.id, permit_type: permitType, file_path: path, uploaded_at: new Date().toISOString() },
+        { onConflict: 'store_id,permit_type' }
+      )
+      .select()
+      .single();
+    check(error, 'The file was uploaded, but it could not be saved to your store.');
+    setPermits((list) => [...list.filter((p) => p.permit_type !== permitType), data]);
+  };
+
+  // Private files open through short-lived secure links that expire after 1 hour.
+  const getPermitUrls = async (list) => {
+    const entries = await Promise.all(
+      list.map(async (p) => {
+        const { data } = await supabase.storage.from('store-permits').createSignedUrl(p.file_path, 3600);
+        return [p.permit_type, data?.signedUrl ?? ''];
+      })
+    );
+    return Object.fromEntries(entries);
+  };
+
   const saveProduct = async (product, imageFile) => {
     let imagePath = product.image_path ?? null;
     if (imageFile) imagePath = await uploadImage('product-images', userId, imageFile);
@@ -197,6 +228,7 @@ export function MerchantProvider({ children }) {
         store,
         products,
         hours,
+        permits,
         orders,
         loading,
         loadError,
@@ -206,6 +238,8 @@ export function MerchantProvider({ children }) {
         updateStore,
         toggleOpen,
         saveHours,
+        uploadPermit,
+        getPermitUrls,
         saveProduct,
         deleteProduct,
         toggleAvailable,

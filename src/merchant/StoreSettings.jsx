@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useMerchant } from '../context/MerchantContext';
+import PermitUploader from './PermitUploader';
 
 const DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 const DISPLAY_ORDER = [1, 2, 3, 4, 5, 6, 0]; // Monday first
@@ -147,6 +148,15 @@ export default function StoreSettings() {
         </button>
         {saved && <span className="saved">Saved</span>}
       </div>
+
+      <section className="card permits-card">
+        <h2 className="card-title">Business permits</h2>
+        <p className="muted small permits-intro">
+          Keep your permits up to date. Replace a file when you renew a permit.
+        </p>
+        <PermitUploader />
+      </section>
+
     </form>
   );
 }

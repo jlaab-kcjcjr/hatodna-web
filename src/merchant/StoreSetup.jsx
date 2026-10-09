@@ -3,6 +3,7 @@ import { useAuth } from '../context/AuthContext';
 import { useMerchant } from '../context/MerchantContext';
 import { LINKS } from '../config/links';
 import BanigBand from '../components/BanigBand';
+import PermitUploader from './PermitUploader';
 
 const CATEGORIES = ['Food', 'Grocery', 'Pharmacy', 'Other'];
 const TOWNS = ['Legazpi City', 'Daraga', 'Tabaco City', 'Ligao City', 'Camalig', 'Guinobatan', 'Sto. Domingo'];
@@ -43,19 +44,32 @@ function StoreStatus({ store }) {
   }[store.status];
 
   return (
-    <section className="card setup-status">
-      <h1>{content.title}</h1>
-      <p className="muted setup-text">{content.text}</p>
-      <p className="small">
-        {store.name}, {store.address}
-      </p>
-      <p className="small setup-contact">
-        Questions? Email{' '}
-        <a className="link" href={`mailto:${LINKS.email}`}>
-          {LINKS.email}
-        </a>
-      </p>
-    </section>
+    <>
+      <section className="card setup-status">
+        <h1>{content.title}</h1>
+        <p className="muted setup-text">{content.text}</p>
+        <p className="small">
+          {store.name}, {store.address}
+        </p>
+        <p className="small setup-contact">
+          Questions? Email{' '}
+          <a className="link" href={`mailto:${LINKS.email}`}>
+            {LINKS.email}
+          </a>
+        </p>
+      </section>
+
+      {store.status !== 'suspended' && (
+        <section className="card setup-permits">
+          <h2>Upload your business permits</h2>
+          <p className="muted setup-text">
+            We need your DTI or SEC registration and your Mayor's permit before we can approve your store. Uploading them
+            now speeds up your review.
+          </p>
+          <PermitUploader />
+        </section>
+      )}
+    </>
   );
 }
 
@@ -120,7 +134,8 @@ export default function StoreSetup() {
       <form className="card" onSubmit={onSubmit}>
         <h1 className="setup-title">Register your store</h1>
         <p className="muted setup-text">
-          Tell us about your business. Our team reviews every store before it goes live on HatodNa.
+          Tell us about your business. Next, you'll upload your permits, and our team reviews every store before it goes
+          live on HatodNa.
         </p>
         <label className="field">
           <span>Store name</span>

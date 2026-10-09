@@ -626,3 +626,22 @@ html { scroll-behavior: smooth; }
 .app-actions { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-top: 0.5rem; }
 .app-actions .btn { flex: 1; }
 .btn-small { padding: 0.375rem 0.75rem; font-size: 0.8125rem; }
+
+/* ===== Permit uploads ===== */
+.permit-list { margin: 0 0 0.75rem; padding: 0; list-style: none; }
+.permit-row { display: flex; align-items: center; gap: 0.75rem; padding: 0.75rem 0; border-top: 1px solid var(--line); }
+.permit-row:first-child { border-top: 0; }
+.permit-icon {
+  display: grid; place-items: center; flex-shrink: 0; width: 2.5rem; height: 2.5rem;
+  border-radius: var(--radius-sm); background: var(--abaca-soft); color: var(--ink-soft);
+}
+.permit-icon.ok { background: var(--pili-soft); color: var(--pili); }
+.permit-text { flex: 1; min-width: 0; }
+.permit-label { font-weight: 600; }
+.permit-req { margin-left: 0.5rem; color: var(--sili); font-size: 0.75rem; font-weight: 800; }
+.permit-btn { flex-shrink: 0; cursor: pointer; }
+.permit-btn.is-disabled { opacity: 0.45; cursor: not-allowed; }
+.permits-card { margin-top: 0.875rem; }
+.permits-intro { margin: -0.5rem 0 0.5rem; }
+.setup-permits { margin-top: 1rem; }
+.setup-permits h2 { margin-bottom: 0.375rem; }
