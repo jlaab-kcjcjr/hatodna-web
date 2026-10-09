@@ -108,19 +108,31 @@ export function MerchantProvider({ children }) {
     };
   }, [storeId]);
 
-  const registerStore = async (form) => {
+  // Creates the store, its default hours, and uploads the permits chosen in the form.
+  const registerStore = async (form, permitFiles = {}) => {
     const { data, error } = await supabase.from('stores').insert(form).select().single();
     check(error, 'Could not register your store.');
-    const defaultHours = [0, 1, 2, 3, 4, 5, 6].map((day) => ({
-      store_id: data.id,
-      day_of_week: day,
-      open_time: '07:00',
-      close_time: '20:00',
-      is_closed: false,
-    }));
-    const { error: hoursError } = await supabase.from('store_hours').insert(defaultHours);
-    check(hoursError, 'Your store was registered, but the opening hours could not be saved.');
-    await loadAll();
+    try {
+      const defaultHours = [0, 1, 2, 3, 4, 5, 6].map((day) => ({
+        store_id: data.id,
+        day_of_week: day,
+        open_time: '07:00',
+        close_time: '20:00',
+        is_closed: false,
+      }));
+      await supabase.from('store_hours').insert(defaultHours);
+      for (const [permitType, file] of Object.entries(permitFiles)) {
+        const path = await uploadDocument('store-permits', userId, file, permitType);
+        await supabase
+          .from('store_permits')
+          .upsert({ store_id: data.id, permit_type: permitType, file_path: path }, { onConflict: 'store_id,permit_type' });
+      }
+    } catch (err) {
+      // The store is already saved. Any permit that didn't upload can be added on the next screen.
+      console.error('Store registered, but a follow-up step failed:', err);
+    } finally {
+      await loadAll();
+    }
   };
 
   const updateStore = async (changes) => {

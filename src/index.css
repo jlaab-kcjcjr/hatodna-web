@@ -649,3 +649,8 @@ html { scroll-behavior: smooth; }
 /* ===== Partner sign-up confirmation ===== */
 .code-input { font-family: var(--font-display); font-size: 1.75rem; letter-spacing: 0.4em; text-align: center; }
 .login-resend { display: block; margin: 0.75rem auto 0; }
+
+/* ===== Permits in the registration form ===== */
+.setup-subtitle { margin: 1.5rem 0 0.375rem; font-size: 1.25rem; }
+.permit-file { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.permit-optional { margin-left: 0.5rem; color: var(--ink-soft); font-size: 0.75rem; font-weight: 600; }
