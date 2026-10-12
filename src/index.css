@@ -763,3 +763,52 @@ html { scroll-behavior: smooth; }
 .rm-label { font-size: 0.75rem; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase; }
 .rm-record { display: grid; gap: 0.25rem; padding-top: 0.875rem; border-top: 1px dashed rgba(42, 26, 22, 0.25); }
 .rm-record p { margin: 0; }
+
+/* ===== Responsive fixes: fit every screen, no sideways scrolling ===== */
+
+/* Safety net: nothing can make the page wider than the screen */
+html, body { max-width: 100%; }
+body { overflow-x: clip; overflow-wrap: break-word; }
+img, svg, video, canvas { max-width: 100%; }
+input, select, textarea, button { max-width: 100%; }
+.field input, .field select, .field textarea { width: 100%; min-width: 0; }
+
+/* Grid columns may shrink below their content (stops menus and tables stretching the page) */
+.shell { grid-template-columns: 16.25rem minmax(0, 1fr); }
+.login { grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); }
+.stats { grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr) minmax(0, 1fr); }
+.grid-2, .settings-grid { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+.sidebar, .main, .card, .stat, .order, .person, .product, .lp-split > *, .login-panel, .login-hero { min-width: 0; }
+.rm-card, .rm-form, .rm-record { grid-template-columns: minmax(0, 1fr); }
+.rm-card > * { min-width: 0; }
+
+/* Long text wraps instead of pushing things sideways */
+.card-head, .order-head, .person-head, .modal-head { flex-wrap: wrap; }
+.detail-list dd, .person, .order-customer, .sidebar-store-addr { overflow-wrap: anywhere; }
+
+/* Tablets and phones */
+@media (max-width: 56.25em) {
+  .shell, .login { grid-template-columns: minmax(0, 1fr); }
+  .stats, .grid-2, .settings-grid { grid-template-columns: minmax(0, 1fr); }
+  .nav { scrollbar-width: none; }
+  .nav::-webkit-scrollbar { display: none; }
+  .sidebar-foot { flex-wrap: wrap; }
+  .sidebar-foot .nav-link { flex: 1; justify-content: center; }
+  .open-toggle { flex: 1 1 100%; }
+  .modal-backdrop { padding: 0.75rem; }
+  .modal { padding: 1.125rem; }
+  .table-wrap { margin-inline: 0; }
+
+  /* 16px text in boxes so iPhones don't zoom in when you tap them */
+  input, select, textarea { font-size: 1rem; }
+}
+
+/* Small phones */
+@media (max-width: 30em) {
+  .page { padding: 1.25rem 1rem 2.5rem; }
+  .card { padding: 1.125rem; }
+  .login-hero { min-height: 18rem; }
+  .rm-summary p { flex: 1 1 100%; min-width: 0; }
+  .modal-actions { flex-wrap: wrap; }
+  .modal-actions .btn { flex: 1; }
+}
