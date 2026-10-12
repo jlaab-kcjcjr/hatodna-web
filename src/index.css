@@ -812,3 +812,30 @@ input, select, textarea, button { max-width: 100%; }
   .modal-actions { flex-wrap: wrap; }
   .modal-actions .btn { flex: 1; }
 }
+
+/* ===== Partner portal menu on phones: fixed bottom tabs, all the same size ===== */
+@media (max-width: 56.25em) {
+  .nav-merchant {
+    position: fixed; left: 0; right: 0; bottom: 0; z-index: 40;
+    display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); gap: 0;
+    padding: 0.375rem 0.25rem calc(0.375rem + env(safe-area-inset-bottom));
+    overflow: visible; background: var(--ink);
+    border-top: 1px solid rgba(255, 255, 255, 0.12);
+    box-shadow: 0 -0.25rem 1rem rgba(42, 26, 22, 0.18);
+  }
+  .nav-merchant .nav-link {
+    position: relative; flex-direction: column; justify-content: center; gap: 0.1875rem;
+    width: 100%; min-width: 0; height: 3.5rem; padding: 0.375rem 0.25rem;
+    font-size: 0.6875rem; line-height: 1.2; text-align: center;
+  }
+  .nav-merchant .nav-label {
+    display: block; max-width: 100%; overflow: hidden; white-space: nowrap; text-overflow: ellipsis;
+  }
+  .nav-merchant .nav-badge {
+    position: absolute; top: 0.25rem; left: calc(50% + 0.375rem); margin: 0;
+    min-width: 1.125rem; height: 1.125rem; padding: 0 0.3125rem;
+    font-size: 0.625rem; line-height: 1.125rem;
+  }
+  /* Keep page content clear of the bottom tabs */
+  .shell-merchant .main { padding-bottom: calc(4.5rem + env(safe-area-inset-bottom)); }
+}

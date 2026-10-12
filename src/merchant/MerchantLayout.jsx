@@ -77,7 +77,7 @@ export default function MerchantLayout() {
   };
 
   return (
-    <div className="shell">
+    <div className="shell shell-merchant">
       <aside className="sidebar">
         <div className="sidebar-top">
           <p className="sidebar-brand">HatodNa!</p>
@@ -89,12 +89,16 @@ export default function MerchantLayout() {
           <p className="sidebar-store-addr">{store.address}</p>
         </div>
 
-        <nav className="nav" aria-label="Partner portal">
+        <nav className="nav nav-merchant" aria-label="Partner portal">
           {navLinks.map(({ to, label, icon: Icon, end }) => (
             <NavLink key={to} to={to} end={end} className={({ isActive }) => `nav-link${isActive ? ' active' : ''}`}>
               <Icon size={18} aria-hidden="true" />
-              <span>{underReview && to === '/merchant' ? 'Setup checklist' : label}</span>
-              {to === '/merchant/orders' && newCount > 0 && <span className="nav-badge">{newCount}</span>}
+              <span className="nav-label">{underReview && to === '/merchant' ? 'Setup checklist' : label}</span>
+              {to === '/merchant/orders' && newCount > 0 && (
+                <span className="nav-badge" aria-label={`${newCount} new`}>
+                  {newCount}
+                </span>
+              )}
             </NavLink>
           ))}
         </nav>
