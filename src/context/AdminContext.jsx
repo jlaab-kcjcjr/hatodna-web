@@ -7,6 +7,7 @@ const AdminContext = createContext(null);
 const RIDER_SELECT = '*, profile:profiles(full_name, phone), rider_documents(doc_type, file_path)';
 const STORE_SELECT = '*, store_permits(permit_type, file_path), products(count)';
 const ORDER_SELECT = '*, store:stores(name), rider:riders(profile:profiles(full_name))';
+const REMITTANCE_SELECT = '*, rider:riders(town, profile:profiles(full_name, phone))';
 
 function check(error, fallback) {
   if (error) throw new Error(error.message || fallback);
@@ -20,6 +21,7 @@ export function AdminProvider({ children }) {
   const [riders, setRiders] = useState([]);
   const [stores, setStores] = useState([]);
   const [orders, setOrders] = useState([]);
+  const [remittances, setRemittances] = useState([]);
   const [applications, setApplications] = useState([]);
   const [settings, setSettings] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -33,6 +35,16 @@ export function AdminProvider({ children }) {
       .limit(300);
     check(error, 'Could not load orders.');
     setOrders(data);
+  }, []);
+
+  const loadRemittances = useCallback(async () => {
+    const { data, error } = await supabase
+      .from('remittances')
+      .select(REMITTANCE_SELECT)
+      .order('created_at', { ascending: false })
+      .limit(300);
+    check(error, 'Could not load remittances.');
+    setRemittances(data);
   }, []);
 
   const loadAll = useCallback(async () => {
@@ -57,13 +69,13 @@ export function AdminProvider({ children }) {
       setStores(s.data);
       setApplications(a.data);
       setSettings(st.data);
-      await loadOrders();
+      await Promise.all([loadOrders(), loadRemittances()]);
     } catch (err) {
       setLoadError(err.message);
     } finally {
       setLoading(false);
     }
-  }, [userId, isAdmin, loadOrders]);
+  }, [userId, isAdmin, loadOrders, loadRemittances]);
 
   // Loading data from Supabase (an external system) is a valid use of an effect.
   useEffect(() => {
@@ -71,7 +83,7 @@ export function AdminProvider({ children }) {
     loadAll();
   }, [loadAll]);
 
-  // Live orders: the list refreshes whenever any order is placed or changes status.
+  // Live orders and remittances: the lists refresh whenever something changes.
   useEffect(() => {
     if (!userId || !isAdmin) return;
     const channel = supabase
@@ -79,11 +91,14 @@ export function AdminProvider({ children }) {
       .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, () => {
         loadOrders().catch(() => {});
       })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'remittances' }, () => {
+        loadRemittances().catch(() => {});
+      })
       .subscribe();
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [userId, isAdmin, loadOrders]);
+  }, [userId, isAdmin, loadOrders, loadRemittances]);
 
   // Emails the rider about the decision. The status is already saved even if the email fails.
   const notifyRider = async (riderId) => {
@@ -91,7 +106,7 @@ export function AdminProvider({ children }) {
     return !error && !data?.error;
   };
 
-    const setRiderStatus = async (id, status, note = '', extra = {}) => {
+  const setRiderStatus = async (id, status, note = '', extra = {}) => {
     const changes = { ...extra, status, status_note: note, reviewed_at: new Date().toISOString() };
     if (status !== 'approved') changes.is_online = false;
     const { data, error } = await supabase.from('riders').update(changes).eq('id', id).select().single();
@@ -162,6 +177,58 @@ export function AdminProvider({ children }) {
     setOrders((list) => list.map((o) => (o.id === orderId ? { ...o, ...data } : o)));
   };
 
+  // ---- COD remittances ----
+
+  // Emails the rider about a shortage or its resolution. The record is already saved even if the email fails.
+  const notifyRemittance = async (remittanceId) => {
+    const { data, error } = await supabase.functions.invoke('notify-remittance', { body: { remittanceId } });
+    return !error && !data?.error;
+  };
+
+  const mergeRemittance = (data) =>
+    setRemittances((list) => list.map((r) => (r.id === data.id ? { ...r, ...data } : r)));
+
+  // Count / verify: matches (or more) = settled, less = shortage recorded and rider notified.
+  const verifyRemittance = async (id, countedAmount, note = '') => {
+    const { data, error } = await supabase.rpc('admin_verify_remittance', {
+      p_remittance_id: id,
+      p_counted: countedAmount,
+      p_note: note,
+    });
+    check(error, 'Could not save the count.');
+    mergeRemittance(data);
+    if (data.status === 'short') {
+      const emailed = await notifyRemittance(id);
+      if (!emailed) window.alert('The shortage was recorded, but the email to the rider could not be sent. Please call them.');
+    }
+    return data;
+  };
+
+  // Determine resolution, then the rider sees the updated status on their dashboard.
+  const resolveShortage = async (id, resolution, note = '') => {
+    const { data, error } = await supabase.rpc('admin_resolve_shortage', {
+      p_remittance_id: id,
+      p_resolution: resolution,
+      p_note: note,
+    });
+    check(error, 'Could not save the resolution.');
+    mergeRemittance(data);
+    const emailed = await notifyRemittance(id);
+    if (!emailed) window.alert('The resolution was saved, but the email to the rider could not be sent.');
+    return data;
+  };
+
+  // The COD records (orders) included in one remittance.
+  const getRemittanceOrders = async (id) => {
+    const { data, error } = await supabase
+      .from('orders')
+      .select('id, code, total, cash_collected, cash_note, rider_earning, delivered_at, store:stores(name)')
+      .eq('remittance_id', id)
+      .order('delivered_at');
+    check(error, 'Could not load the COD records.');
+    return data;
+  };
+
   const updateSettings = async (changes) => {
     const { data, error } = await supabase
       .from('platform_settings')
@@ -173,7 +240,7 @@ export function AdminProvider({ children }) {
     setSettings(data);
   };
 
-  // Private files (IDs, permits) open through short-lived secure links that expire after 1 hour.
+  // Private files (IDs, permits, proofs) open through short-lived secure links that expire after 1 hour.
   const getFileUrls = async (bucket, files) => {
     const entries = await Promise.all(
       files.map(async ({ key, path }) => {
@@ -187,6 +254,7 @@ export function AdminProvider({ children }) {
   const pendingRiders = riders.filter((r) => r.status === 'pending').length;
   const pendingStores = stores.filter((s) => s.status === 'pending').length;
   const newApplications = applications.filter((a) => a.status === 'new').length;
+  const pendingRemittances = remittances.filter((r) => r.status === 'submitted' || r.status === 'short').length;
 
   return (
     <AdminContext.Provider
@@ -201,6 +269,11 @@ export function AdminProvider({ children }) {
         pendingRiders,
         pendingStores,
         newApplications,
+        remittances,
+        pendingRemittances,
+        verifyRemittance,
+        resolveShortage,
+        getRemittanceOrders,
         reload: loadAll,
         setRiderStatus,
         setStoreStatus,
