@@ -3,6 +3,7 @@ import { Navigate, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import MayonMark from '../components/MayonMark';
 import BanigBand from '../components/BanigBand';
+import PasswordInput from '../components/PasswordInput';
 
 const RESEND_SECONDS = 60;
 
@@ -200,8 +201,7 @@ export default function MerchantLogin() {
               </label>
               <label className="field">
                 <span>Password</span>
-                <input
-                  type="password"
+                <PasswordInput
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   autoComplete={mode === 'login' ? 'current-password' : 'new-password'}

@@ -4,6 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import { COLORS } from '../theme';
 import MayonMark from '../components/MayonMark';
 import BanigBand from '../components/BanigBand';
+import PasswordInput from '../components/PasswordInput';
 
 export default function AdminLogin() {
   const { session, profile, profileLoading, signIn, signOut } = useAuth();
@@ -74,8 +75,7 @@ export default function AdminLogin() {
             </label>
             <label className="field">
               <span>Password</span>
-              <input
-                type="password"
+              <PasswordInput
                 value={password}
                 onChange={(e) => {
                   setPassword(e.target.value);
