@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useMerchant } from '../context/MerchantContext';
 import PermitUploader from './PermitUploader';
 import MapPicker from '../components/MapPicker';
+import StorePhotos from './StorePhotos';
 
 const DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 const DISPLAY_ORDER = [1, 2, 3, 4, 5, 6, 0]; // Monday first
@@ -80,6 +81,15 @@ export default function StoreSettings() {
         <h1>Store settings</h1>
         <p className="muted">This is what customers and riders see about your store.</p>
       </header>
+
+      <section className="card store-photos-card">
+        <h2 className="card-title">Store photos</h2>
+        <p className="muted small permits-intro">
+          Customers see your logo and cover photo on the HatodNa home page and on your store page. Photos save right
+          away.
+        </p>
+        <StorePhotos />
+      </section>
 
       <div className="settings-grid">
         <section className="card">
@@ -180,7 +190,6 @@ export default function StoreSettings() {
         </p>
         <PermitUploader />
       </section>
-
     </form>
   );
 }

@@ -143,6 +143,18 @@ export function MerchantProvider({ children }) {
 
   const toggleOpen = () => updateStore({ is_open: !store.is_open });
 
+  // Logo or cover photo: upload to the public store-images bucket, then save it on the store.
+  const uploadStorePhoto = async (column, file) => {
+    if (!['logo_path', 'image_path'].includes(column)) throw new Error('Unknown photo type.');
+    const path = await uploadImage('store-images', userId, file);
+    await updateStore({ [column]: path });
+  };
+
+  const removeStorePhoto = (column) => {
+    if (!['logo_path', 'image_path'].includes(column)) throw new Error('Unknown photo type.');
+    return updateStore({ [column]: null });
+  };
+
   // Sends a rejected store back for review. The database checks the location and required permits.
   const resubmitStore = async () => {
     const { data, error } = await supabase.rpc('resubmit_store', { p_store_id: store.id });
@@ -256,6 +268,8 @@ export function MerchantProvider({ children }) {
         registerStore,
         updateStore,
         toggleOpen,
+        uploadStorePhoto,
+        removeStorePhoto,
         saveHours,
         uploadPermit,
         getPermitUrls,
