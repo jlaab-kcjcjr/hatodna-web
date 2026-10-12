@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useAdmin } from '../context/AdminContext';
+import CashHeld from './CashHeld';
 
 const peso = (n) =>
   `₱${Number(n ?? 0).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
@@ -309,6 +310,8 @@ export default function Remittances() {
         <h1>COD remittances</h1>
         <p className="muted">Count the cash riders bring in, then settle each shift or record a shortage.</p>
       </header>
+
+       <CashHeld />
 
       <div className="rm-summary">
         <p>

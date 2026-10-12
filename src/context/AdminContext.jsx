@@ -22,6 +22,7 @@ export function AdminProvider({ children }) {
   const [stores, setStores] = useState([]);
   const [orders, setOrders] = useState([]);
   const [remittances, setRemittances] = useState([]);
+  const [cashHeld, setCashHeld] = useState([]); // COD cash each rider is holding right now
   const [applications, setApplications] = useState([]);
   const [settings, setSettings] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -47,6 +48,13 @@ export function AdminProvider({ children }) {
     setRemittances(data);
   }, []);
 
+  // Cash each rider is holding: unremitted deliveries plus remittances not handed over yet.
+  const loadCashHeld = useCallback(async () => {
+    const { data, error } = await supabase.rpc('admin_cash_held');
+    check(error, 'Could not load cash held by riders.');
+    setCashHeld(data ?? []);
+  }, []);
+
   const loadAll = useCallback(async () => {
     if (!userId || !isAdmin) {
       setLoading(false);
@@ -69,13 +77,13 @@ export function AdminProvider({ children }) {
       setStores(s.data);
       setApplications(a.data);
       setSettings(st.data);
-      await Promise.all([loadOrders(), loadRemittances()]);
+      await Promise.all([loadOrders(), loadRemittances(), loadCashHeld()]);
     } catch (err) {
       setLoadError(err.message);
     } finally {
       setLoading(false);
     }
-  }, [userId, isAdmin, loadOrders, loadRemittances]);
+  }, [userId, isAdmin, loadOrders, loadRemittances, loadCashHeld]);
 
   // Loading data from Supabase (an external system) is a valid use of an effect.
   useEffect(() => {
@@ -83,22 +91,24 @@ export function AdminProvider({ children }) {
     loadAll();
   }, [loadAll]);
 
-  // Live orders and remittances: the lists refresh whenever something changes.
+  // Live orders, remittances and cash held: the lists refresh whenever something changes.
   useEffect(() => {
     if (!userId || !isAdmin) return;
     const channel = supabase
       .channel('admin-orders')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, () => {
         loadOrders().catch(() => {});
+        loadCashHeld().catch(() => {});
       })
       .on('postgres_changes', { event: '*', schema: 'public', table: 'remittances' }, () => {
         loadRemittances().catch(() => {});
+        loadCashHeld().catch(() => {});
       })
       .subscribe();
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [userId, isAdmin, loadOrders, loadRemittances]);
+  }, [userId, isAdmin, loadOrders, loadRemittances, loadCashHeld]);
 
   // Emails the rider about the decision. The status is already saved even if the email fails.
   const notifyRider = async (riderId) => {
@@ -271,6 +281,8 @@ export function AdminProvider({ children }) {
         newApplications,
         remittances,
         pendingRemittances,
+        cashHeld,
+        reloadCashHeld: loadCashHeld,
         verifyRemittance,
         resolveShortage,
         getRemittanceOrders,
