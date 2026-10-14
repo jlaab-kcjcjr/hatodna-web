@@ -28,7 +28,9 @@ function RiderReview({ rider, deliveries, onClose }) {
   const docs = rider.rider_documents ?? [];
   const required = requiredDocsFor(rider.vehicle);
   const missingDocs = required.filter((k) => !docs.some((d) => d.doc_type === k));
-  const name = rider.profile?.full_name || 'Unnamed rider';
+// Face check: the selfie next to the photo ID (driver's license, or clearance for bicycle riders).
+  const idType = docs.some((d) => d.doc_type === 'license') ? 'license' : 'clearance';
+  const faceDocs = ['selfie', idType];
 
   useEffect(() => {
     let cancelled = false;
@@ -137,6 +139,29 @@ function RiderReview({ rider, deliveries, onClose }) {
             </>
           )}
         </dl>
+
+        <h3 className="modal-section">Compare faces</h3>
+        <div className="face-compare">
+          {faceDocs.map((k) => {
+            const has = docs.some((d) => d.doc_type === k);
+            return (
+              <figure key={k} className="face-card">
+                {urls[k] ? (
+                  <a href={urls[k]} target="_blank" rel="noreferrer">
+                    <img src={urls[k]} alt={DOC_LABELS[k] ?? k} />
+                  </a>
+                ) : (
+                  <div className="face-missing">{has ? 'Loading...' : 'Not uploaded'}</div>
+                )}
+                <figcaption>{DOC_LABELS[k] ?? (k === 'selfie' ? 'Selfie' : k)}</figcaption>
+              </figure>
+            );
+          })}
+        </div>
+        <p className="muted small">
+          Check that both photos show the same person, and that the name on the ID matches "{name}". Tap a photo to
+          open it full size.
+        </p>
 
         <h3 className="modal-section">Documents</h3>
         <div className="doc-grid">
