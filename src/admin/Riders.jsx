@@ -3,6 +3,7 @@ import { Search, FileText, X } from 'lucide-react';
 import { useAdmin } from '../context/AdminContext';
 import { STATUS_LABEL, DOC_LABELS, requiredDocsFor } from '../data/adminData';
 import { ago, formatPhone } from '../utils/adminUtils';
+import { supabase } from '../lib/supabase';
 
 const TABS = [
   { key: 'pending', label: 'Applications' },
@@ -24,6 +25,7 @@ function RiderReview({ rider, deliveries, onClose }) {
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
   const [urls, setUrls] = useState({});
+  const [ratings, setRatings] = useState({ riderId: null, summary: null, list: [] });
 
   const docs = rider.rider_documents ?? [];
   const required = requiredDocsFor(rider.vehicle);
@@ -42,6 +44,25 @@ function RiderReview({ rider, deliveries, onClose }) {
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [rider.id]);
+
+  // Customer ratings for this rider (average and latest reviews).
+  useEffect(() => {
+    let cancelled = false;
+    Promise.all([
+      supabase.rpc('rider_rating_summary', { p_rider_id: rider.id }),
+      supabase.rpc('admin_rider_reviews', { p_rider_id: rider.id }),
+    ]).then(([summary, list]) => {
+      if (!cancelled) setRatings({ riderId: rider.id, summary: summary.data?.[0] ?? null, list: list.data ?? [] });
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [rider.id]);
+  const ratingTotal = ratings.riderId === rider.id ? Number(ratings.summary?.total ?? 0) : 0;
+  const ratingText =
+    ratingTotal > 0
+      ? `★ ${Number(ratings.summary.average).toFixed(1)} from ${ratingTotal} ${ratingTotal === 1 ? 'rating' : 'ratings'}`
+      : 'No ratings yet';
 
   const act = async (status, note = '', extra = {}) => {
     setBusy(true);
@@ -135,10 +156,31 @@ function RiderReview({ rider, deliveries, onClose }) {
               <dt>Deliveries</dt>
               <dd>{deliveries}</dd>
               <dt>Rating</dt>
-              <dd>{rider.rating ?? 'No ratings yet'}</dd>
+               <dd>{ratingText}</dd>
             </>
           )}
         </dl>
+
+        {ratingTotal > 0 && (
+            <>
+              <h3 className="modal-section">Latest customer reviews</h3>
+              <ul className="review-list">
+                {ratings.list.map((r, i) => (
+                  <li key={`${r.order_code}-${i}`}>
+                    <p>
+                      <span className="review-stars">{'★'.repeat(r.stars)}</span>
+                      <span className="review-off">{'★'.repeat(5 - r.stars)}</span>{' '}
+                      <span className="muted small">
+                        {r.order_code} · {r.customer_first_name} · {ago(r.created_at)}
+                      </span>
+                    </p>
+                    {r.tags?.length > 0 && <p className="muted small">{r.tags.join(' · ')}</p>}
+                    {r.comment && <p className="review-comment">“{r.comment}”</p>}
+                  </li>
+                ))}
+              </ul>
+            </>
+          )}
 
         <h3 className="modal-section">Compare faces</h3>
         <div className="face-compare">
