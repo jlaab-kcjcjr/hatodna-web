@@ -4,6 +4,7 @@ import { useMerchant } from '../context/MerchantContext';
 import { peso, isToday, greeting, timeAgo } from '../utils/format';
 import SetupChecklist from './SetupChecklist';
 import PayoutsReceived from './PayoutsReceived';
+import StoreRatings from './StoreRatings';
 
 export default function Overview() {
   const { profile } = useAuth();
@@ -139,6 +140,8 @@ export default function Overview() {
       </div>
 
       <PayoutsReceived />
+
+      <StoreRatings />
 
     </div>
   );

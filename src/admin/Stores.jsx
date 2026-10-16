@@ -4,6 +4,7 @@ import { useAdmin } from '../context/AdminContext';
 import { STATUS_LABEL, PERMITS } from '../data/adminData';
 import { ago } from '../utils/adminUtils';
 import { parseQrPh } from '../utils/qrph';
+import { supabase } from '../lib/supabase';
 
 const SCHEDULE_LABEL = { daily: 'Daily', weekly: 'Weekly (Mondays)', twice_monthly: 'Twice a month (15th and month-end)' };
 
@@ -25,6 +26,7 @@ function StoreReview({ store, onClose }) {
   const [busy, setBusy] = useState(false);
   const [saved, setSaved] = useState(false);
   const [urls, setUrls] = useState({});
+  const [ratings, setRatings] = useState({ storeId: null, summary: null, reviews: [] });
 
   const permits = store.store_permits ?? [];
   const payout = Array.isArray(store.store_payouts) ? store.store_payouts[0] : store.store_payouts;
@@ -43,6 +45,26 @@ function StoreReview({ store, onClose }) {
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [store.id]);
+
+    // Customer ratings for this store (average and latest reviews with order codes).
+  useEffect(() => {
+    let cancelled = false;
+    Promise.all([
+      supabase.rpc('store_rating_summaries'),
+      supabase.rpc('store_reviews_list', { p_store_id: store.id, p_limit: 10 }),
+    ]).then(([all, list]) => {
+      if (cancelled) return;
+      setRatings({
+        storeId: store.id,
+        summary: (all.data ?? []).find((r) => r.store_id === store.id) ?? null,
+        reviews: list.data ?? [],
+      });
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [store.id]);
+  const ratingTotal = ratings.storeId === store.id ? Number(ratings.summary?.total ?? 0) : 0;
 
   const run = async (task, closeAfter = true) => {
     setBusy(true);
@@ -139,6 +161,14 @@ function StoreReview({ store, onClose }) {
               'Not pinned yet'
             )}
           </dd>
+
+            <dt>Rating</dt>
+            <dd>
+              {ratingTotal > 0
+                ? `★ ${Number(ratings.summary.average).toFixed(1)} from ${ratingTotal} ${ratingTotal === 1 ? 'rating' : 'ratings'}`
+                : 'No ratings yet'}
+            </dd>
+          
           <dt>Menu</dt>
           <dd>
             {store.products?.[0]?.count ?? 0} {(store.products?.[0]?.count ?? 0) === 1 ? 'product' : 'products'}
@@ -154,6 +184,27 @@ function StoreReview({ store, onClose }) {
             . You can still approve, but customers can't order until both are done.
           </p>
         )}
+
+                  {ratingTotal > 0 && (
+            <>
+              <h3 className="modal-section">Latest customer reviews</h3>
+              <ul className="review-list">
+                {ratings.reviews.map((r, i) => (
+                  <li key={`${r.order_code}-${i}`}>
+                    <p>
+                      <span className="review-stars">{'★'.repeat(r.stars)}</span>
+                      <span className="review-off">{'★'.repeat(5 - r.stars)}</span>{' '}
+                      <span className="muted small">
+                        {r.order_code} · {r.reviewer} · {ago(r.created_at)}
+                      </span>
+                    </p>
+                    {r.tags?.length > 0 && <p className="muted small">{r.tags.join(' · ')}</p>}
+                    {r.comment && <p className="review-comment">“{r.comment}”</p>}
+                  </li>
+                ))}
+              </ul>
+            </>
+          )}
 
         <h3 className="modal-section">Payout account</h3>
         {payout ? (
