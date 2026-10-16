@@ -1,8 +1,9 @@
 import { NavLink, Navigate, Outlet } from 'react-router-dom';
-import { LayoutDashboard, Bike, Store, Inbox, Receipt, Wallet, SlidersHorizontal, RefreshCw, LogOut } from 'lucide-react';
+import { LayoutDashboard, Bike, Store, Inbox, Receipt, Wallet, Banknote, SlidersHorizontal, RefreshCw, LogOut } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useAdmin } from '../context/AdminContext';
 import BanigBand from '../components/BanigBand';
+
 
 
 const LINKS = [
@@ -12,6 +13,7 @@ const LINKS = [
   { to: '/admin/applications', label: 'Partner applications', icon: Inbox, badge: 'applications' },
   { to: '/admin/orders', label: 'Orders', icon: Receipt },
   { to: '/admin/remittances', label: 'Remittances', icon: Wallet, badge: 'remittances' },
+  { to: '/admin/payouts', label: 'Payouts', icon: Banknote },
   { to: '/admin/settings', label: 'Fees and settings', icon: SlidersHorizontal },
 ];
 

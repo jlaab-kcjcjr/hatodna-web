@@ -971,3 +971,31 @@ input, select, textarea, button { max-width: 100%; }
 .payout-qr-btn { margin-top: 0.375rem; cursor: pointer; }
 .payout-qr-btn.is-disabled { opacity: 0.45; pointer-events: none; }
 .payout-warn { display: flex; align-items: center; gap: 0.375rem; margin: 0; color: var(--sili); font-weight: 600; font-size: 0.875rem; }
+
+/* ===== Payouts (admin) ===== */
+.po-card { display: grid; gap: 0.875rem; margin-bottom: 1rem; min-width: 0; }
+.po-due { border-color: var(--pili); }
+.po-head { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: flex-start; gap: 0.75rem 1.5rem; }
+.po-head > div:first-child { flex: 1 1 16rem; min-width: 0; }
+.po-name { margin: 0 0 0.125rem; font-size: 1.25rem; overflow-wrap: anywhere; }
+.po-amount { display: grid; justify-items: end; }
+.po-amount strong { font-family: var(--font-display); font-size: 1.75rem; font-variant-numeric: tabular-nums; }
+.po-due .po-amount strong { color: var(--pili); }
+.po-rows { display: grid; gap: 0.375rem; margin: 0; max-width: 30rem; }
+.po-rows div { display: flex; justify-content: space-between; gap: 1rem; }
+.po-rows dt, .po-rows dd { margin: 0; font-variant-numeric: tabular-nums; }
+.po-total { padding-top: 0.5rem; border-top: 1px solid var(--line); }
+.po-total dt, .po-total dd { font-weight: 800; }
+.po-account { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem 0.75rem; padding: 0.625rem 0.75rem; border-radius: var(--radius-sm); background: var(--page); border: 1px solid var(--line); }
+.po-account span { overflow-wrap: anywhere; }
+.po-method { padding: 0.125rem 0.5rem; border-radius: 999px; background: #e3ecf5; color: #2c4a6b; font-size: 0.75rem; font-weight: 800; }
+.po-card > .btn-outline { justify-self: start; }
+.po-qr { display: flex; flex-wrap: wrap; align-items: center; gap: 1rem 1.5rem; padding: 1rem; border: 1px dashed var(--ink-soft); border-radius: var(--radius-sm); background: #fff; }
+.po-qr img { width: min(16rem, 100%); height: auto; image-rendering: pixelated; }
+.po-steps { flex: 1 1 14rem; display: grid; gap: 0.375rem; margin: 0; padding-left: 1.25rem; }
+.po-form { display: grid; gap: 0.5rem; max-width: 30rem; padding-top: 0.875rem; border-top: 1px dashed var(--line); }
+.po-form .field { margin-bottom: 0; }
+.po-form .btn { justify-self: start; }
+@media (max-width: 30em) {
+  .po-amount { justify-items: start; }
+}

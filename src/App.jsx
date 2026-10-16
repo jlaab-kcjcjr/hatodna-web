@@ -19,6 +19,7 @@ import Applications from './admin/Applications';
 import AdminOrders from './admin/AdminOrders';
 import Settings from './admin/Settings';
 import Remittances from './admin/Remittances';
+import Payouts from './admin/Payouts';
 
 export default function App() {
   return (
@@ -45,6 +46,7 @@ export default function App() {
               <Route path="applications" element={<Applications />} />
               <Route path="orders" element={<AdminOrders />} />
               <Route path="remittances" element={<Remittances />} />
+              <Route path="payouts" element={<Payouts />} />
               <Route path="settings" element={<Settings />} />
             </Route>
 
