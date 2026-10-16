@@ -3,6 +3,9 @@ import { Search, FileText, X } from 'lucide-react';
 import { useAdmin } from '../context/AdminContext';
 import { STATUS_LABEL, PERMITS } from '../data/adminData';
 import { ago } from '../utils/adminUtils';
+import { parseQrPh } from '../utils/qrph';
+
+const SCHEDULE_LABEL = { daily: 'Daily', weekly: 'Weekly (Mondays)', twice_monthly: 'Twice a month (15th and month-end)' };
 
 const TABS = [
   { key: 'pending', label: 'Registrations' },
@@ -24,6 +27,9 @@ function StoreReview({ store, onClose }) {
   const [urls, setUrls] = useState({});
 
   const permits = store.store_permits ?? [];
+  const payout = Array.isArray(store.store_payouts) ? store.store_payouts[0] : store.store_payouts;
+  const qrInfo = payout?.qr_payload ? parseQrPh(payout.qr_payload) : null;
+  const payoutComplete = Boolean(payout?.qr_payload);
   const commissionValue = Number(commission);
   const commissionValid = commission !== '' && commissionValue >= 0 && commissionValue <= 40;
 
@@ -149,6 +155,33 @@ function StoreReview({ store, onClose }) {
           </p>
         )}
 
+        <h3 className="modal-section">Payout account</h3>
+        {payout ? (
+          <dl className="detail-list">
+            <dt>Method</dt>
+            <dd>{payout.method === 'maya' ? 'Maya' : 'GCash'}</dd>
+            <dt>Account name</dt>
+            <dd>{payout.account_name}</dd>
+            <dt>Number</dt>
+            <dd>{payout.account_number}</dd>
+            <dt>Schedule</dt>
+            <dd>{SCHEDULE_LABEL[payout.schedule] ?? payout.schedule}</dd>
+            <dt>QR code</dt>
+            <dd>
+              {!payout.qr_payload
+                ? 'Not uploaded'
+                : qrInfo?.ok
+                  ? `Read OK, account holder: ${qrInfo.name || 'not shown'}${qrInfo.provider ? ` (${qrInfo.provider === 'gcash' ? 'GCash' : 'Maya'})` : ''}`
+                  : 'Saved, but could not be read'}
+            </dd>
+          </dl>
+        ) : (
+          <p className="note-box">No payout account yet. The merchant must add their GCash or Maya number and QR code.</p>
+        )}
+        {payout && qrInfo?.ok && qrInfo.name && (
+          <p className="muted small">Check that the QR account holder matches the account name and the store owner.</p>
+        )}
+
         <h3 className="modal-section">Permits</h3>
         <div className="doc-grid">
           {PERMITS.map((p) => {
@@ -163,7 +196,7 @@ function StoreReview({ store, onClose }) {
                 </div>
               );
             }
-                        const isPdf = permit.file_path.endsWith('.pdf');
+            const isPdf = permit.file_path.endsWith('.pdf');
             return (
               <a key={p.key} className="doc-tile doc-tile-photo" href={url || undefined} target="_blank" rel="noreferrer">
                 {url && !isPdf ? <img src={url} alt={p.label} /> : <FileText size={26} aria-hidden="true" />}
@@ -194,6 +227,10 @@ function StoreReview({ store, onClose }) {
               }}
             />
           </label>
+        )}
+
+        {(store.status === 'pending' || store.status === 'suspended') && !payoutComplete && (
+          <p className="note-box">Approval is locked until the merchant adds a payout account and QR code.</p>
         )}
 
         {error && <p className="form-error">{error}</p>}
@@ -232,7 +269,7 @@ function StoreReview({ store, onClose }) {
                 <button type="button" className="btn btn-ghost" disabled={busy} onClick={() => setMode('reject')}>
                   Reject
                 </button>
-                <button type="button" className="btn btn-pili" disabled={busy} onClick={approve}>
+                <button type="button" className="btn btn-pili" disabled={busy || !payoutComplete} onClick={approve}>
                   Approve store
                 </button>
               </>
@@ -261,7 +298,7 @@ function StoreReview({ store, onClose }) {
               <button
                 type="button"
                 className="btn btn-pili"
-                disabled={busy}
+                disabled={busy || !payoutComplete}
                 onClick={() => run(() => setStoreStatus(store.id, 'active'))}
               >
                 Reinstate store

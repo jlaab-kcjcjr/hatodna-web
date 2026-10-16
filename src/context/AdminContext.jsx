@@ -5,7 +5,8 @@ import { useAuth } from './AuthContext';
 const AdminContext = createContext(null);
 
 const RIDER_SELECT = '*, profile:profiles(full_name, phone), rider_documents(doc_type, file_path)';
-const STORE_SELECT = '*, store_permits(permit_type, file_path), products(count)';
+const STORE_SELECT =
+  '*, store_permits(permit_type, file_path), products(count), store_payouts(method, account_name, account_number, schedule, qr_payload)';
 const ORDER_SELECT = '*, store:stores(name), rider:riders(profile:profiles(full_name))';
 const REMITTANCE_SELECT = '*, rider:riders(town, profile:profiles(full_name, phone))';
 

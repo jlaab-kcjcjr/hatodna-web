@@ -7,12 +7,14 @@ import { LINKS } from '../config/links';
 
 // Home screen for stores waiting for approval: finish setting up while the team reviews.
 export default function SetupChecklist() {
-  const { store, products, hours, permits, resubmitStore } = useMerchant();
+  const { store, products, hours, permits, payout, resubmitStore } = useMerchant();
   const [busy, setBusy] = useState(false);
   const [resubmitError, setResubmitError] = useState('');
   const rejected = store.status === 'rejected';
   const permitsDone = PERMITS.filter((p) => p.required).every((p) => permits.some((x) => x.permit_type === p.key));
   const pinned = store.lat != null;
+  const payoutDone = Boolean(payout?.qr_payload);
+  const scheduleLabel = { daily: 'daily', weekly: 'weekly', twice_monthly: 'twice a month' }[payout?.schedule] ?? '';
 
   const items = [
     {
@@ -39,6 +41,15 @@ export default function SetupChecklist() {
       action: permitsDone ? 'View permits' : 'Upload permits',
     },
     {
+      done: payoutDone,
+      title: 'Payout account and schedule set',
+      text: payoutDone
+        ? `${payout.method === 'maya' ? 'Maya' : 'GCash'} ${payout.account_number}, paid ${scheduleLabel}.`
+        : 'Add your GCash or Maya number and QR code, and choose how often you get paid.',
+      to: '/merchant/settings',
+      action: payoutDone ? 'Edit payout' : 'Add payout',
+    },
+    {
       done: products.length > 0,
       title: 'Menu added',
       text:
@@ -57,7 +68,7 @@ export default function SetupChecklist() {
     },
   ];
   const doneCount = items.filter((i) => i.done).length;
-  const readyToResubmit = pinned && permitsDone;
+  const readyToResubmit = pinned && permitsDone && payoutDone;
 
   const onResubmit = async () => {
     setBusy(true);
@@ -126,11 +137,13 @@ export default function SetupChecklist() {
         <section className="card resubmit-card">
           <h2>Ready for another review?</h2>
           <p className="muted setup-text">
-            Fix what our team asked for above (your details, location, and permits are in Store settings), then send your
-            store back to us. We'll review it again within 1 to 2 days.
+            Fix what our team asked for above (your details, location, permits, and payout are in Store settings), then
+            send your store back to us. We'll review it again within 1 to 2 days.
           </p>
           {!readyToResubmit && (
-            <p className="note-box">Pin your location and upload the required permits first, then you can resubmit.</p>
+            <p className="note-box">
+              Pin your location, upload the required permits, and add your payout account first, then you can resubmit.
+            </p>
           )}
           {resubmitError && <p className="form-error">{resubmitError}</p>}
           <button type="button" className="btn btn-primary" disabled={busy || !readyToResubmit} onClick={onResubmit}>

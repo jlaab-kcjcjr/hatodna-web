@@ -115,11 +115,17 @@ export function MerchantProvider({ children }) {
     };
   }, [storeId]);
 
-  // Creates the store, its default hours, and uploads the permits chosen in the form.
-  const registerStore = async (form, permitFiles = {}) => {
+  // Creates the store, its payout account, default hours, and the permits chosen in the form.
+  const registerStore = async (form, permitFiles = {}, payoutValues = null) => {
     const { data, error } = await supabase.from('stores').insert(form).select().single();
     check(error, 'Could not register your store.');
     try {
+      if (payoutValues) {
+        const { error: payoutError } = await supabase
+          .from('store_payouts')
+          .upsert({ ...payoutValues, store_id: data.id }, { onConflict: 'store_id' });
+        if (payoutError) throw payoutError;
+      }
       const defaultHours = [0, 1, 2, 3, 4, 5, 6].map((day) => ({
         store_id: data.id,
         day_of_week: day,
@@ -135,7 +141,7 @@ export function MerchantProvider({ children }) {
           .upsert({ store_id: data.id, permit_type: permitType, file_path: path }, { onConflict: 'store_id,permit_type' });
       }
     } catch (err) {
-      // The store is already saved. Any permit that didn't upload can be added on the next screen.
+      // The store is already saved. Anything that didn't save (payout or a permit) can be added from the checklist.
       console.error('Store registered, but a follow-up step failed:', err);
     } finally {
       await loadAll();

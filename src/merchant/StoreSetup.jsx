@@ -7,6 +7,8 @@ import { PERMITS } from '../data/adminData';
 import BanigBand from '../components/BanigBand';
 import PermitUploader from './PermitUploader';
 import MapPicker from '../components/MapPicker';
+import PayoutSettings, { toLocalMobile, PAYOUT_METHODS } from './PayoutSettings';
+import { parseQrPh } from '../utils/qrph';
 
 const CATEGORIES = ['Food', 'Grocery', 'Pharmacy', 'Other'];
 const TOWNS = ['Legazpi City', 'Daraga', 'Tabaco City', 'Ligao City', 'Camalig', 'Guinobatan', 'Sto. Domingo'];
@@ -98,6 +100,7 @@ export default function StoreSetup() {
   });
   const [permitFiles, setPermitFiles] = useState({}); // { registration: File, mayors: File, ... }
   const [location, setLocation] = useState(null);
+  const [payout, setPayout] = useState({ method: 'gcash', account_name: '', account_number: '', schedule: 'weekly', qr_payload: '' });
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
 
@@ -139,6 +142,17 @@ export default function StoreSetup() {
     const missing = PERMITS.filter((p) => p.required && !permitFiles[p.key]);
     if (missing.length > 0) return setError(`Add your ${missing.map((p) => p.label).join(' and ')}.`);
 
+    // Payout account (GCash or Maya + QR) and schedule
+    const methodLabel = PAYOUT_METHODS.find((m) => m.key === payout.method)?.label ?? 'GCash';
+    if (payout.account_name.trim().length < 3) return setError(`Enter the full name on your ${methodLabel} account.`);
+    const payoutNumber = toLocalMobile(payout.account_number);
+    if (!payoutNumber) return setError(`Enter your ${methodLabel} mobile number for payouts, like 0917 123 4567.`);
+    if (!payout.qr_payload) return setError(`Upload your ${methodLabel} QR code for payouts.`);
+    const qrInfo = parseQrPh(payout.qr_payload);
+    if (qrInfo.ok && qrInfo.provider && qrInfo.provider !== payout.method) {
+      return setError(`Your payout QR is from ${qrInfo.provider === 'gcash' ? 'GCash' : 'Maya'}, but you chose ${methodLabel}.`);
+    }
+
     setBusy(true);
     try {
       await registerStore(
@@ -153,7 +167,14 @@ export default function StoreSetup() {
           lat: location.lat,
           lng: location.lng,
         },
-        permitFiles
+        permitFiles,
+        {
+          method: payout.method,
+          account_name: payout.account_name.trim(),
+          account_number: payoutNumber,
+          schedule: payout.schedule,
+          qr_payload: payout.qr_payload,
+        }
       );
     } catch (err) {
       setError(err.message);
@@ -166,8 +187,8 @@ export default function StoreSetup() {
       <form className="card" onSubmit={onSubmit}>
         <h1 className="setup-title">Register your store</h1>
         <p className="muted setup-text">
-          Tell us about your business and upload your permits. Our team reviews every store before it goes live on
-          HatodNa.
+          Tell us about your business, upload your permits, and tell us where to send your earnings. Our team reviews
+          every store before it goes live on HatodNa.
         </p>
         <label className="field">
           <span>Store name</span>
@@ -284,6 +305,12 @@ export default function StoreSetup() {
             );
           })}
         </ul>
+
+        <h2 className="setup-subtitle">Payout account and schedule</h2>
+        <p className="muted small">
+          Customers pay cash to our riders. HatodNa then sends your sales, minus commission, to your GCash or Maya.
+        </p>
+        <PayoutSettings showSave={false} onChange={setPayout} />
 
         {error && <p className="form-error">{error}</p>}
         <button type="submit" className="btn btn-primary btn-block" disabled={busy}>
