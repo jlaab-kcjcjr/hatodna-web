@@ -3,6 +3,7 @@ import { useMerchant } from '../context/MerchantContext';
 import PermitUploader from './PermitUploader';
 import MapPicker from '../components/MapPicker';
 import StorePhotos from './StorePhotos';
+import PayoutSettings from './PayoutSettings';
 
 const DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 const DISPLAY_ORDER = [1, 2, 3, 4, 5, 6, 0]; // Monday first
@@ -156,6 +157,11 @@ export default function StoreSettings() {
           ))}
         </section>
       </div>
+
+     <section className="card permits-card">
+           <h2 className="card-title">Payout account and schedule</h2>
+           <PayoutSettings />
+         </section>
 
       <section className="card permits-card">
         <h2 className="card-title">Store location</h2>

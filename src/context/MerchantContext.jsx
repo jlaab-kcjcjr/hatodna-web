@@ -20,6 +20,7 @@ export function MerchantProvider({ children }) {
   const [products, setProducts] = useState([]);
   const [hours, setHours] = useState([]);
   const [permits, setPermits] = useState([]);
+  const [payout, setPayout] = useState(null); // GCash/Maya account and schedule (private)
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState('');
@@ -30,6 +31,7 @@ export function MerchantProvider({ children }) {
       setProducts([]);
       setHours([]);
       setPermits([]);
+      setPayout(null);
       setOrders([]);
       setLoading(false);
       return;
@@ -48,7 +50,7 @@ export function MerchantProvider({ children }) {
       setStore(myStore);
 
       if (myStore) {
-        const [p, h, pm, o] = await Promise.all([
+        const [p, h, pm, o, po] = await Promise.all([
           supabase.from('products').select('*').eq('store_id', myStore.id).order('created_at', { ascending: false }),
           supabase.from('store_hours').select('*').eq('store_id', myStore.id).order('day_of_week'),
           supabase.from('store_permits').select('*').eq('store_id', myStore.id),
@@ -58,15 +60,20 @@ export function MerchantProvider({ children }) {
             .eq('store_id', myStore.id)
             .order('created_at', { ascending: false })
             .limit(200),
+          supabase.from('store_payouts').select('*').eq('store_id', myStore.id).maybeSingle(),
         ]);
         check(p.error, 'Could not load your products.');
         check(h.error, 'Could not load your hours.');
         check(pm.error, 'Could not load your permits.');
         check(o.error, 'Could not load your orders.');
+        check(po.error, 'Could not load your payout details.');
         setProducts(p.data);
         setHours(h.data);
         setPermits(pm.data);
         setOrders(o.data);
+        setPayout(po.data ?? null);
+      } else {
+        setPayout(null);
       }
     } catch (err) {
       setLoadError(err.message);
@@ -153,6 +160,17 @@ export function MerchantProvider({ children }) {
   const removeStorePhoto = (column) => {
     if (!['logo_path', 'image_path'].includes(column)) throw new Error('Unknown photo type.');
     return updateStore({ [column]: null });
+  };
+
+  // GCash/Maya payout account and schedule, kept in a private table only the owner and admins can read.
+  const savePayout = async (values) => {
+    const { data, error } = await supabase
+      .from('store_payouts')
+      .upsert({ ...values, store_id: store.id, updated_at: new Date().toISOString() }, { onConflict: 'store_id' })
+      .select()
+      .single();
+    check(error, 'Could not save your payout details.');
+    setPayout(data);
   };
 
   // Sends a rejected store back for review. The database checks the location and required permits.
@@ -260,6 +278,7 @@ export function MerchantProvider({ children }) {
         products,
         hours,
         permits,
+        payout,
         orders,
         loading,
         loadError,
@@ -270,6 +289,7 @@ export function MerchantProvider({ children }) {
         toggleOpen,
         uploadStorePhoto,
         removeStorePhoto,
+        savePayout,
         saveHours,
         uploadPermit,
         getPermitUrls,
