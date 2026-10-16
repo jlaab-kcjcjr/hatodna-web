@@ -3,6 +3,7 @@ import { useAuth } from '../context/AuthContext';
 import { useMerchant } from '../context/MerchantContext';
 import { peso, isToday, greeting, timeAgo } from '../utils/format';
 import SetupChecklist from './SetupChecklist';
+import PayoutsReceived from './PayoutsReceived';
 
 export default function Overview() {
   const { profile } = useAuth();
@@ -136,6 +137,9 @@ export default function Overview() {
           )}
         </section>
       </div>
+
+      <PayoutsReceived />
+
     </div>
   );
 }
