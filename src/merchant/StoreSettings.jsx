@@ -4,6 +4,7 @@ import PermitUploader from './PermitUploader';
 import MapPicker from '../components/MapPicker';
 import StorePhotos from './StorePhotos';
 import PayoutSettings from './PayoutSettings';
+import ChangePassword from './ChangePassword';
 
 const DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 const DISPLAY_ORDER = [1, 2, 3, 4, 5, 6, 0]; // Monday first
@@ -196,6 +197,8 @@ export default function StoreSettings() {
         </p>
         <PermitUploader />
       </section>
+
+      <ChangePassword />
     </form>
   );
 }

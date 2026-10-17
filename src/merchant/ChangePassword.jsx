@@ -24,8 +24,7 @@ export default function ChangePassword() {
     setError('');
   };
 
-  const onSubmit = async (e) => {
-    e.preventDefault();
+  const onSubmit = async () => {
     setError('');
     if (!current) return setError('Enter your current password.');
     const missing = missingRules(next);
@@ -71,7 +70,16 @@ export default function ChangePassword() {
       {!open && !done && <p className="muted small">Change it anytime, or if you think someone else knows it.</p>}
 
       {open && (
-        <form className="change-password-form" onSubmit={onSubmit}>
+        <div
+          className="change-password-form"
+          onKeyDown={(e) => {
+            // Enter saves the password, not the Store settings form this card sits in.
+            if (e.key === 'Enter') {
+              e.preventDefault();
+              if (!busy) onSubmit();
+            }
+          }}
+        >
           <label className="field">
             <span>Current password</span>
             <PasswordInput value={current} onChange={(e) => setCurrent(e.target.value)} autoComplete="current-password" />
@@ -95,11 +103,11 @@ export default function ChangePassword() {
             <button type="button" className="btn" onClick={close} disabled={busy}>
               Cancel
             </button>
-            <button type="submit" className="btn btn-primary" disabled={busy}>
+            <button type="button" className="btn btn-primary" disabled={busy} onClick={onSubmit}>
               {busy ? 'Saving...' : 'Save new password'}
             </button>
           </div>
-        </form>
+        </div>
       )}
     </section>
   );
