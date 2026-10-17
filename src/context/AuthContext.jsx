@@ -8,6 +8,7 @@ function friendlyAuthError(error) {
   if (message.includes('Invalid login credentials')) return "That email and password don't match.";
   if (message.includes('Email not confirmed')) return 'Confirm your email first. Enter the code we emailed you.';
   if (message.includes('already registered')) return 'An account with this email already exists. Log in instead.';
+  if (message.includes('different from the old password')) return 'Your new password must be different from your old one.';
   if (message.includes('Password should') || message.toLowerCase().includes('weak password')) {
     return 'Use a stronger password: at least 8 characters, with an uppercase letter, a lowercase letter, a number and a symbol.';
   }
@@ -82,6 +83,25 @@ export function AuthProvider({ children }) {
     if (error) throw new Error(friendlyAuthError(error));
   };
 
+  // Forgot password: email a 6-digit code. Supabase doesn't say whether the email has an account.
+  const sendPasswordReset = async (email) => {
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: `${window.location.origin}/merchant`,
+    });
+    if (error) throw new Error(friendlyAuthError(error));
+  };
+
+  // Checks the code from the reset email. This logs the merchant in so they can set a new password.
+  const verifyResetCode = async (email, code) => {
+    const { error } = await supabase.auth.verifyOtp({ email, token: code, type: 'recovery' });
+    if (error) throw new Error('That code is incorrect or has expired. Check your email or send a new code.');
+  };
+
+  const setNewPassword = async (password) => {
+    const { error } = await supabase.auth.updateUser({ password });
+    if (error) throw new Error(friendlyAuthError(error));
+  };
+
   const signOut = async () => {
     await supabase.auth.signOut();
     setProfile(null);
@@ -98,6 +118,9 @@ export function AuthProvider({ children }) {
         signUp,
         confirmSignup,
         resendConfirmation,
+        sendPasswordReset,
+        verifyResetCode,
+        setNewPassword,
         signOut,
       }}
     >

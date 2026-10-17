@@ -1076,3 +1076,6 @@ input, select, textarea, button { max-width: 100%; }
 .password-rules li { display: flex; align-items: center; gap: 0.4375rem; font-size: 0.8125rem; color: var(--muted, #7a6a5f); }
 .password-rules li svg { flex-shrink: 0; }
 .password-rules li.ok { color: #2e5e3e; font-weight: 600; }
+
+/* ===== Forgot password link ===== */
+.forgot-link { justify-self: end; margin-top: -0.375rem; font-size: 0.875rem; }
