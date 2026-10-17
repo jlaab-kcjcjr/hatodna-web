@@ -38,7 +38,7 @@ export default function PayoutsReceived() {
     <section className="card payouts-card">
       <div className="card-head">
         <h2>Payouts</h2>
-        <Link to="/merchant/settings" className="link">
+        <Link to="/merchant/settings#payouts" className="link">
           Payout settings
         </Link>
       </div>

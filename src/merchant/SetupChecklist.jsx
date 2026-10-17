@@ -37,7 +37,7 @@ export default function SetupChecklist() {
       text: permitsDone
         ? "DTI or SEC registration and Mayor's permit received."
         : "Upload your DTI or SEC registration and Mayor's permit.",
-      to: '/merchant/settings',
+      to: '/merchant/settings#account',
       action: permitsDone ? 'View permits' : 'Upload permits',
     },
     {
@@ -46,7 +46,7 @@ export default function SetupChecklist() {
       text: payoutDone
         ? `${payout.method === 'maya' ? 'Maya' : 'GCash'} ${payout.account_number}, paid ${scheduleLabel}.`
         : 'Add your GCash or Maya number and QR code, and choose how often you get paid.',
-      to: '/merchant/settings',
+      to: '/merchant/settings#payouts',
       action: payoutDone ? 'Edit payout' : 'Add payout',
     },
     {
