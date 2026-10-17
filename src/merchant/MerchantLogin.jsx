@@ -1,11 +1,22 @@
 import { useEffect, useState } from 'react';
 import { Navigate, useNavigate } from 'react-router-dom';
+import { Check, Circle } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import MayonMark from '../components/MayonMark';
 import BanigBand from '../components/BanigBand';
 import PasswordInput from '../components/PasswordInput';
 
 const RESEND_SECONDS = 60;
+
+// Same rules as Supabase (Authentication → Email → Password requirements), so the form never lets
+// through a password the server will reject.
+const PASSWORD_RULES = [
+  { label: 'At least 8 characters', short: '8 or more characters', test: (p) => p.length >= 8 },
+  { label: 'One uppercase letter (A-Z)', short: 'an uppercase letter', test: (p) => /[A-Z]/.test(p) },
+  { label: 'One lowercase letter (a-z)', short: 'a lowercase letter', test: (p) => /[a-z]/.test(p) },
+  { label: 'One number (0-9)', short: 'a number', test: (p) => /[0-9]/.test(p) },
+  { label: 'One symbol, like ! @ # $ % & *', short: 'a symbol', test: (p) => /[!@#$%^&*()_+\-=[\]{};':"\\|,.<>/?`~]/.test(p) },
+];
 
 export default function MerchantLogin() {
   const { session, signIn, signUp, confirmSignup, resendConfirmation } = useAuth();
@@ -63,7 +74,10 @@ export default function MerchantLogin() {
 
     if (mode === 'signup' && fullName.trim().length < 3) return setError('Enter your full name.');
     if (!email.trim() || !password) return setError('Enter your email and password.');
-    if (mode === 'signup' && password.length < 8) return setError('Use a password with at least 8 characters.');
+    if (mode === 'signup') {
+      const missing = PASSWORD_RULES.filter((r) => !r.test(password)).map((r) => r.short);
+      if (missing.length > 0) return setError(`Your password still needs: ${missing.join(', ')}.`);
+    }
 
     setBusy(true);
     try {
@@ -205,8 +219,25 @@ export default function MerchantLogin() {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
+                  aria-describedby={mode === 'signup' ? 'password-rules' : undefined}
                 />
               </label>
+              {mode === 'signup' && (
+                <div className="password-rules" id="password-rules">
+                  <p>Your password must have:</p>
+                  <ul>
+                    {PASSWORD_RULES.map((r) => {
+                      const ok = r.test(password);
+                      return (
+                        <li key={r.label} className={ok ? 'ok' : ''}>
+                          {ok ? <Check size={15} aria-hidden="true" /> : <Circle size={15} aria-hidden="true" />}
+                          {r.label}
+                        </li>
+                      );
+                    })}
+                  </ul>
+                </div>
+              )}
               {error && <p className="form-error">{error}</p>}
               <button className="btn btn-primary btn-block" type="submit" disabled={busy}>
                 {busy ? 'Please wait...' : mode === 'login' ? 'Log in' : 'Create account'}

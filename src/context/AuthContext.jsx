@@ -8,7 +8,9 @@ function friendlyAuthError(error) {
   if (message.includes('Invalid login credentials')) return "That email and password don't match.";
   if (message.includes('Email not confirmed')) return 'Confirm your email first. Enter the code we emailed you.';
   if (message.includes('already registered')) return 'An account with this email already exists. Log in instead.';
-  if (message.includes('Password should be')) return 'Use a stronger password with at least 8 characters.';
+  if (message.includes('Password should') || message.toLowerCase().includes('weak password')) {
+    return 'Use a stronger password: at least 8 characters, with an uppercase letter, a lowercase letter, a number and a symbol.';
+  }
   if (message.toLowerCase().includes('rate limit')) return 'Too many emails were sent. Please wait a few minutes and try again.';
   return message || 'Something went wrong. Please try again.';
 }

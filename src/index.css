@@ -1068,3 +1068,11 @@ input, select, textarea, button { max-width: 100%; }
 }
 .update-banner .spin { animation: update-spin 0.8s linear infinite; }
 @keyframes update-spin { to { transform: rotate(360deg); } }
+
+/* ===== Password requirements (Create partner account) ===== */
+.password-rules { margin-top: -0.25rem; padding: 0.625rem 0.75rem; background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius-sm); }
+.password-rules p { margin: 0 0 0.25rem; font-size: 0.8125rem; font-weight: 700; }
+.password-rules ul { display: grid; gap: 0.1875rem; margin: 0; padding: 0; list-style: none; }
+.password-rules li { display: flex; align-items: center; gap: 0.4375rem; font-size: 0.8125rem; color: var(--muted, #7a6a5f); }
+.password-rules li svg { flex-shrink: 0; }
+.password-rules li.ok { color: #2e5e3e; font-weight: 600; }
