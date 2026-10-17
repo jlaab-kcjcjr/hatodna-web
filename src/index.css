@@ -1079,3 +1079,11 @@ input, select, textarea, button { max-width: 100%; }
 
 /* ===== Forgot password link ===== */
 .forgot-link { justify-self: end; margin-top: -0.375rem; font-size: 0.875rem; }
+
+/* ===== Change password (partner portal) ===== */
+.change-password { margin-top: 0.875rem; }
+.change-password h2 { display: inline-flex; align-items: center; gap: 0.5rem; }
+.change-password-form { display: grid; gap: 0.75rem; max-width: 26rem; }
+.check-row { display: flex; align-items: center; gap: 0.5rem; font-size: 0.875rem; cursor: pointer; }
+.check-row input { width: 1.125rem; height: 1.125rem; accent-color: #b8202b; flex-shrink: 0; }
+.change-password-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 0.5rem; }

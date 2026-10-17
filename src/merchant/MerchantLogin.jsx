@@ -1,45 +1,13 @@
 import { useEffect, useState } from 'react';
 import { Navigate, useNavigate } from 'react-router-dom';
-import { Check, Circle } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import MayonMark from '../components/MayonMark';
 import BanigBand from '../components/BanigBand';
 import PasswordInput from '../components/PasswordInput';
+import PasswordRules from '../components/PasswordRules';
+import { missingRules } from '../utils/password';
 
 const RESEND_SECONDS = 60;
-
-// Same rules as Supabase (Authentication → Email → Password requirements), so the form never lets
-// through a password the server will reject.
-const PASSWORD_RULES = [
-  { label: 'At least 8 characters', short: '8 or more characters', test: (p) => p.length >= 8 },
-  { label: 'One uppercase letter (A-Z)', short: 'an uppercase letter', test: (p) => /[A-Z]/.test(p) },
-  { label: 'One lowercase letter (a-z)', short: 'a lowercase letter', test: (p) => /[a-z]/.test(p) },
-  { label: 'One number (0-9)', short: 'a number', test: (p) => /[0-9]/.test(p) },
-  { label: 'One symbol, like ! @ # $ % & *', short: 'a symbol', test: (p) => /[!@#$%^&*()_+\-=[\]{};':"\\|,.<>/?`~]/.test(p) },
-];
-
-function missingRules(password) {
-  return PASSWORD_RULES.filter((r) => !r.test(password)).map((r) => r.short);
-}
-
-function PasswordRules({ password }) {
-  return (
-    <div className="password-rules" id="password-rules">
-      <p>Your password must have:</p>
-      <ul>
-        {PASSWORD_RULES.map((r) => {
-          const ok = r.test(password);
-          return (
-            <li key={r.label} className={ok ? 'ok' : ''}>
-              {ok ? <Check size={15} aria-hidden="true" /> : <Circle size={15} aria-hidden="true" />}
-              {r.label}
-            </li>
-          );
-        })}
-      </ul>
-    </div>
-  );
-}
 
 export default function MerchantLogin() {
   const { session, signIn, signUp, confirmSignup, resendConfirmation, sendPasswordReset, verifyResetCode, setNewPassword } =

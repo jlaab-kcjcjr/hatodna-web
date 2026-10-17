@@ -5,6 +5,7 @@ import { peso, isToday, greeting, timeAgo } from '../utils/format';
 import SetupChecklist from './SetupChecklist';
 import PayoutsReceived from './PayoutsReceived';
 import StoreRatings from './StoreRatings';
+import ChangePassword from './ChangePassword';
 
 export default function Overview() {
   const { profile } = useAuth();
@@ -142,6 +143,8 @@ export default function Overview() {
       <PayoutsReceived />
 
       <StoreRatings />
+
+      <ChangePassword />
 
     </div>
   );

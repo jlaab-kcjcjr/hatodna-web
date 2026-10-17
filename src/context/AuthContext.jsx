@@ -40,11 +40,18 @@ export function AuthProvider({ children }) {
       setLoading(false);
     });
 
+    let lastUserId;
     const { data: listener } = supabase.auth.onAuthStateChange((_event, newSession) => {
       setSession(newSession);
+      // Only reload the profile when a different person logs in or out
+      // (not on token refreshes or when re-checking a password).
+      const userId = newSession?.user.id;
+      if (userId === lastUserId) return;
+      lastUserId = userId;
       // Supabase recommends not calling the database directly inside this callback.
-      setTimeout(() => loadProfile(newSession?.user.id), 0);
+      setTimeout(() => loadProfile(userId), 0);
     });
+
     return () => listener.subscription.unsubscribe();
   }, []);
 
@@ -102,6 +109,22 @@ export function AuthProvider({ children }) {
     if (error) throw new Error(friendlyAuthError(error));
   };
 
+  // Change password while logged in: check the current password first, then save the new one.
+  const changePassword = async (currentPassword, newPassword, logoutOthers) => {
+    const email = session?.user?.email;
+    const { error: checkError } = await supabase.auth.signInWithPassword({ email, password: currentPassword });
+    if (checkError) {
+      throw new Error(
+        checkError.message.includes('Invalid login credentials')
+          ? 'Your current password is incorrect.'
+          : friendlyAuthError(checkError)
+      );
+    }
+    const { error } = await supabase.auth.updateUser({ password: newPassword });
+    if (error) throw new Error(friendlyAuthError(error));
+    if (logoutOthers) await supabase.auth.signOut({ scope: 'others' });
+  };
+
   const signOut = async () => {
     await supabase.auth.signOut();
     setProfile(null);
@@ -121,6 +144,7 @@ export function AuthProvider({ children }) {
         sendPasswordReset,
         verifyResetCode,
         setNewPassword,
+        changePassword,
         signOut,
       }}
     >
