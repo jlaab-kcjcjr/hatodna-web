@@ -25,7 +25,11 @@ export function MerchantProvider({ children }) {
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState('');
 
-  const loadAll = useCallback(async () => {
+  const [refreshKey, setRefreshKey] = useState(0); // goes up after each Refresh, so pages reload their own data
+
+  // quiet: used by the Refresh button. Keeps the current page on screen while loading,
+  // and reports a failure to the button instead of replacing the whole portal with an error.
+  const loadAll = useCallback(async ({ quiet = false } = {}) => {
     if (!userId || !isMerchant) {
       setStore(null);
       setProducts([]);
@@ -36,8 +40,10 @@ export function MerchantProvider({ children }) {
       setLoading(false);
       return;
     }
-    setLoading(true);
-    setLoadError('');
+    if (!quiet) {
+      setLoading(true);
+      setLoadError('');
+    }
     try {
       const { data: stores, error } = await supabase
         .from('stores')
@@ -75,12 +81,16 @@ export function MerchantProvider({ children }) {
       } else {
         setPayout(null);
       }
+      if (quiet) setRefreshKey((k) => k + 1);
     } catch (err) {
+      if (quiet) throw err;
       setLoadError(err.message);
     } finally {
       setLoading(false);
     }
   }, [userId, isMerchant]);
+
+  const refresh = useCallback(() => loadAll({ quiet: true }), [loadAll]);
 
   // Loading data from Supabase (an external system) is a valid use of an effect.
   useEffect(() => {
@@ -290,6 +300,8 @@ export function MerchantProvider({ children }) {
         loadError,
         newCount,
         reload: loadAll,
+        refresh,
+        refreshKey,
         registerStore,
         updateStore,
         toggleOpen,

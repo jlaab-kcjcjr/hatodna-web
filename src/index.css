@@ -1109,3 +1109,8 @@ input, select, textarea, button { max-width: 100%; }
 .settings-panel { display: grid; gap: 0.875rem; min-width: 0; }
 .settings-panel > .card, .settings-panel > .settings-grid { margin-top: 0; }
 .settings-save { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 0.75rem; }
+
+/* ===== Refresh data button (partner portal) ===== */
+.nav-link .spin { animation: nav-spin 0.8s linear infinite; }
+.nav-link:disabled { opacity: 0.7; cursor: default; }
+@keyframes nav-spin { to { transform: rotate(360deg); } }

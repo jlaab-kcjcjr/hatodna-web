@@ -1,5 +1,6 @@
+import { useState } from 'react';
 import { NavLink, Navigate, Outlet } from 'react-router-dom';
-import { LayoutDashboard, Receipt, UtensilsCrossed, Store, LogOut } from 'lucide-react';
+import { LayoutDashboard, Receipt, UtensilsCrossed, Store, RefreshCw, LogOut } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useMerchant } from '../context/MerchantContext';
 import BanigBand from '../components/BanigBand';
@@ -14,7 +15,8 @@ const LINKS = [
 
 export default function MerchantLayout() {
   const { session, profile, loading: authLoading, profileLoading, signOut } = useAuth();
-  const { store, loading, loadError, toggleOpen, newCount, reload } = useMerchant();
+  const { store, loading, loadError, toggleOpen, newCount, reload, refresh, refreshKey } = useMerchant();
+  const [refreshing, setRefreshing] = useState(false);
 
   if (authLoading || (session && profileLoading)) return <p className="page-loading">Loading...</p>;
   if (!session) return <Navigate to="/merchant/login" replace />;
@@ -68,6 +70,17 @@ export default function MerchantLayout() {
   const rejected = store.status === 'rejected';
   const navLinks = underReview ? LINKS.filter((l) => l.to !== '/merchant/orders') : LINKS;
 
+  const onRefresh = async () => {
+    setRefreshing(true);
+    try {
+      await refresh();
+    } catch (err) {
+      window.alert(`Could not refresh: ${err.message}`);
+    } finally {
+      setRefreshing(false);
+    }
+  };
+
   const onToggle = async () => {
     try {
       await toggleOpen();
@@ -120,6 +133,10 @@ export default function MerchantLayout() {
               {store.is_open ? 'Open for orders' : 'Store closed'}
             </button>
           )}
+          <button type="button" className="nav-link" onClick={onRefresh} disabled={refreshing} aria-busy={refreshing}>
+            <RefreshCw size={18} aria-hidden="true" className={refreshing ? 'spin' : ''} />
+            <span>{refreshing ? 'Refreshing...' : 'Refresh data'}</span>
+          </button>
           <button type="button" className="nav-link" onClick={signOut}>
             <LogOut size={18} aria-hidden="true" />
             <span>Log out</span>
@@ -128,7 +145,8 @@ export default function MerchantLayout() {
       </aside>
 
       <main className="main">
-        <Outlet />
+        {/* A new key after Refresh reloads the page, so cards like ratings and payouts fetch fresh data too. */}
+        <Outlet key={refreshKey} />
       </main>
     </div>
   );
